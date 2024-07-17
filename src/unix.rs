@@ -67,7 +67,7 @@ pin_project! {
 impl HyperUnixStream {
     /// Manually create the stream by connecting to the given socket path, this is useful when you're
     /// not using hyper-util's high-level Client, but the low-level hyper primitives
-    pub async fn connect(socket_path: PathBuf) -> Result<HyperUnixStream, io::Error> {
+    pub async fn connect(socket_path: impl AsRef<Path>) -> Result<HyperUnixStream, io::Error> {
         let stream = UnixStream::connect(socket_path).await?;
         Ok(HyperUnixStream { stream })
     }

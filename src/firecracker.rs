@@ -56,7 +56,6 @@ impl HyperFirecrackerUri {
             .ok_or_else(|| io_input_err("URI host must be present"))?;
         let hex_decoded = Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
         let full_str = String::from_utf8_lossy(&hex_decoded).into_owned();
-        dbg!(&full_str);
         let splits = full_str
             .split_once(':')
             .ok_or_else(|| io_input_err("URI host could not be split in halves with a ."))?;
@@ -90,7 +89,7 @@ impl HyperFirecrackerStream {
     /// the given guest port and verifying the tunnel was established (with an OK message).
     /// This is useful when you're not using hyper-util's high-level Client, but the low-level hyper primitives.
     pub async fn connect(
-        host_socket_path: PathBuf,
+        host_socket_path: impl AsRef<Path>,
         guest_port: u32,
     ) -> Result<HyperFirecrackerStream, io::Error> {
         let mut stream = UnixStream::connect(host_socket_path).await?;
