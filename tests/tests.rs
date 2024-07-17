@@ -4,8 +4,7 @@ use bytes::{Bytes, BytesMut};
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response, Uri};
 use hyper_client_sockets::{
-    HyperUnixConnector, HyperUnixStream, HyperUnixUri, HyperVsockConnector, HyperVsockStream,
-    HyperVsockUri,
+    HyperUnixConnector, HyperUnixStream, HyperUnixUri, HyperVsockConnector, HyperVsockStream, HyperVsockUri,
 };
 use hyper_util::{
     client::legacy::Client,
@@ -25,15 +24,10 @@ async fn assert_response_ok(response: &mut Response<Incoming>) {
         }
     }
 
-    assert_eq!(
-        String::from_utf8_lossy(content.as_ref()).into_owned(),
-        "Hello World!"
-    );
+    assert_eq!(String::from_utf8_lossy(content.as_ref()).into_owned(), "Hello World!");
 }
 
-async fn hello_world_route(
-    _: Request<hyper::body::Incoming>,
-) -> Result<Response<Full<Bytes>>, Infallible> {
+async fn hello_world_route(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
     Ok(Response::new(Full::new(Bytes::from("Hello World!"))))
 }
 
@@ -83,8 +77,7 @@ async fn start_vsock_server() -> (u32, u32) {
 #[tokio::test]
 async fn unix_connectivity_with_hyper_util() {
     let path = start_unix_server().await;
-    let client: Client<_, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(HyperUnixConnector);
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperUnixConnector);
     let unix_uri: Uri = HyperUnixUri::new(path, "/").unwrap().into();
     let request = Request::builder()
         .uri(unix_uri)
@@ -116,16 +109,10 @@ async fn unix_connectivity_with_raw_hyper() {
 #[tokio::test]
 async fn vsock_connectivity_with_hyper_util() {
     let (cid, port) = start_vsock_server().await;
-    let client: Client<_, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(HyperVsockConnector);
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperVsockConnector);
     let vsock_uri: Uri = HyperVsockUri::new(cid, port, "/").unwrap().into();
     let mut response = client
-        .request(
-            Request::builder()
-                .uri(vsock_uri)
-                .body(Full::new(Bytes::new()))
-                .unwrap(),
-        )
+        .request(Request::builder().uri(vsock_uri).body(Full::new(Bytes::new())).unwrap())
         .await
         .unwrap();
     assert_response_ok(&mut response).await;
@@ -141,12 +128,7 @@ async fn vsock_connectivity_with_raw_hyper() {
         .unwrap();
     tokio::task::spawn(conn);
     let mut response = make_req
-        .send_request(
-            Request::builder()
-                .uri("/")
-                .body(Full::new(Bytes::new()))
-                .unwrap(),
-        )
+        .send_request(Request::builder().uri("/").body(Full::new(Bytes::new())).unwrap())
         .await
         .unwrap();
     assert_response_ok(&mut response).await;

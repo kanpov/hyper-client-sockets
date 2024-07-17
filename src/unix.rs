@@ -23,10 +23,7 @@ pub struct HyperUnixUri {
 
 impl HyperUnixUri {
     /// Create a new Unix socket URI from a given socket and in-socket URL
-    pub fn new(
-        socket_path: impl AsRef<Path>,
-        url: impl AsRef<str>,
-    ) -> Result<HyperUnixUri, Box<dyn Error>> {
+    pub fn new(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<HyperUnixUri, Box<dyn Error>> {
         let host = hex::encode(socket_path.as_ref().to_string_lossy().to_string());
         let uri_str = format!("unix://{host}/{}", url.as_ref().trim_start_matches('/'));
         let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
@@ -40,8 +37,7 @@ impl HyperUnixUri {
 
         match hyper_uri.host() {
             Some(host) => {
-                let bytes =
-                    Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
+                let bytes = Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
                 Ok(PathBuf::from(String::from_utf8_lossy(&bytes).into_owned()))
             }
             None => Err(io_input_err("URI host must be present")),
@@ -125,8 +121,7 @@ impl Service<HyperUri> for HyperUnixConnector {
 
     type Error = io::Error;
 
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

@@ -30,9 +30,7 @@ impl HyperVsockUri {
 
     fn decode(hyper_uri: &HyperUri) -> Result<(u32, u32), std::io::Error> {
         if hyper_uri.scheme_str() != Some("vsock") {
-            return Err(io_input_err(
-                "URI scheme on a vsock socket must be vsock://",
-            ));
+            return Err(io_input_err("URI scheme on a vsock socket must be vsock://"));
         }
 
         match hyper_uri.host() {
@@ -40,9 +38,9 @@ impl HyperVsockUri {
                 let full_str = Vec::from_hex(host)
                     .map_err(|_| io_input_err("URI host must be hex"))
                     .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
-                let splits = full_str.split_once('.').ok_or_else(|| {
-                    io_input_err("URI host could not be split at . into 2 slices (CID, then port)")
-                })?;
+                let splits = full_str
+                    .split_once('.')
+                    .ok_or_else(|| io_input_err("URI host could not be split at . into 2 slices (CID, then port)"))?;
                 let cid: u32 = splits
                     .0
                     .parse()
@@ -138,8 +136,7 @@ impl Service<HyperUri> for HyperVsockConnector {
 
     type Error = std::io::Error;
 
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

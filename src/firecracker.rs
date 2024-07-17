@@ -46,9 +46,7 @@ impl HyperFirecrackerUri {
 
     fn decode(hyper_uri: &HyperUri) -> Result<(PathBuf, u32), std::io::Error> {
         if hyper_uri.scheme_str() != Some("fc") {
-            return Err(io_input_err(
-                "URI scheme on a Firecracker socket must be fc://",
-            ));
+            return Err(io_input_err("URI scheme on a Firecracker socket must be fc://"));
         }
 
         let host = hyper_uri
@@ -93,9 +91,7 @@ impl HyperFirecrackerStream {
         guest_port: u32,
     ) -> Result<HyperFirecrackerStream, io::Error> {
         let mut stream = UnixStream::connect(host_socket_path).await?;
-        stream
-            .write_all(format!("CONNECT {guest_port}\n").as_bytes())
-            .await?;
+        stream.write_all(format!("CONNECT {guest_port}\n").as_bytes()).await?;
         let mut buf_reader = BufReader::new(&mut stream).lines();
         let mut line = String::new();
         buf_reader.get_mut().read_line(&mut line).await?;
@@ -132,17 +128,11 @@ impl hyper::rt::Write for HyperFirecrackerStream {
         self.project().stream.poll_write(cx, buf)
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
         self.project().stream.poll_flush(cx)
     }
 
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Result<(), std::io::Error>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), std::io::Error>> {
         self.project().stream.poll_shutdown(cx)
     }
 }
@@ -164,8 +154,7 @@ impl Service<HyperUri> for HyperFirecrackerConnector {
 
     type Error = io::Error;
 
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
