@@ -15,21 +15,17 @@ use crate::io_input_err;
 
 /// A URI that points at a vsock's CID and port and at the URL inside the socket
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VsockSocketUri {
+pub struct HyperVsockUri {
     hyper_uri: HyperUri,
 }
 
-impl VsockSocketUri {
+impl HyperVsockUri {
     /// Create a new vsock URI with the given vsock CID and port and in-socket URL
-    pub fn new(
-        cid: u32,
-        port: u32,
-        url: impl AsRef<str>,
-    ) -> Result<VsockSocketUri, Box<dyn Error>> {
+    pub fn new(cid: u32, port: u32, url: impl AsRef<str>) -> Result<HyperVsockUri, Box<dyn Error>> {
         let host = hex::encode(format!("{cid};{port}"));
         let uri_str = format!("vsock://{host}/{}", url.as_ref().trim_start_matches('/'));
         let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
-        Ok(VsockSocketUri { hyper_uri })
+        Ok(HyperVsockUri { hyper_uri })
     }
 
     fn decode(hyper_uri: &HyperUri) -> Result<(u32, u32), std::io::Error> {
@@ -66,8 +62,8 @@ impl VsockSocketUri {
     }
 }
 
-impl From<VsockSocketUri> for HyperUri {
-    fn from(value: VsockSocketUri) -> Self {
+impl From<HyperVsockUri> for HyperUri {
+    fn from(value: HyperVsockUri) -> Self {
         value.hyper_uri
     }
 }
@@ -75,20 +71,22 @@ impl From<VsockSocketUri> for HyperUri {
 pin_project! {
     /// A hyper I/O-compatible wrapper for tokio-vsock's VsockSteram
     #[derive(Debug)]
-    pub struct VsockSocketStream {
+    pub struct HyperVsockStream {
         #[pin]
         stream: VsockStream
     }
 }
 
-impl VsockSocketStream {
-    async fn connect(cid: u32, port: u32) -> Result<VsockSocketStream, std::io::Error> {
+impl HyperVsockStream {
+    /// Manually create this stream by connecting to the given vsock CID and port, this is useful when you're
+    /// not using hyper-util's high-level Client, but the low-level hyper primitives
+    pub async fn connect(cid: u32, port: u32) -> Result<HyperVsockStream, std::io::Error> {
         let stream = VsockStream::connect(VsockAddr::new(cid, port)).await?;
-        Ok(VsockSocketStream { stream })
+        Ok(HyperVsockStream { stream })
     }
 }
 
-impl hyper::rt::Read for VsockSocketStream {
+impl hyper::rt::Read for HyperVsockStream {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -99,7 +97,7 @@ impl hyper::rt::Read for VsockSocketStream {
     }
 }
 
-impl hyper::rt::Write for VsockSocketStream {
+impl hyper::rt::Write for HyperVsockStream {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -125,18 +123,18 @@ impl hyper::rt::Write for VsockSocketStream {
 
 /// A hyper connector for a vsock
 #[derive(Debug, Clone, Copy, Default)]
-pub struct VsockSocketConnector;
+pub struct HyperVsockConnector;
 
-impl Unpin for VsockSocketConnector {}
+impl Unpin for HyperVsockConnector {}
 
-impl Connection for VsockSocketStream {
+impl Connection for HyperVsockStream {
     fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
         Connected::new()
     }
 }
 
-impl Service<HyperUri> for VsockSocketConnector {
-    type Response = VsockSocketStream;
+impl Service<HyperUri> for HyperVsockConnector {
+    type Response = HyperVsockStream;
 
     type Error = std::io::Error;
 
@@ -149,8 +147,8 @@ impl Service<HyperUri> for VsockSocketConnector {
 
     fn call(&mut self, req: HyperUri) -> Self::Future {
         Box::pin(async move {
-            let (cid, port) = VsockSocketUri::decode(&req)?;
-            VsockSocketStream::connect(cid, port).await
+            let (cid, port) = HyperVsockUri::decode(&req)?;
+            HyperVsockStream::connect(cid, port).await
         })
     }
 }

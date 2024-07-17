@@ -15,20 +15,20 @@ use tower_service::Service;
 
 /// A URI that points at a Unix socket and at the URL inside the socket
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UnixSocketUri {
+pub struct HyperUnixUri {
     hyper_uri: HyperUri,
 }
 
-impl UnixSocketUri {
+impl HyperUnixUri {
     /// Create a new Unix socket URI from a given socket and in-socket URL
     pub fn new(
         socket_path: impl AsRef<Path>,
         url: impl AsRef<str>,
-    ) -> Result<UnixSocketUri, Box<dyn Error>> {
+    ) -> Result<HyperUnixUri, Box<dyn Error>> {
         let host = hex::encode(socket_path.as_ref().to_string_lossy().to_string());
         let uri_str = format!("unix://{host}/{}", url.as_ref().trim_start_matches('/'));
         let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
-        Ok(UnixSocketUri { hyper_uri })
+        Ok(HyperUnixUri { hyper_uri })
     }
 
     fn decode(hyper_uri: &HyperUri) -> Result<PathBuf, std::io::Error> {
@@ -54,8 +54,8 @@ impl UnixSocketUri {
     }
 }
 
-impl From<UnixSocketUri> for HyperUri {
-    fn from(value: UnixSocketUri) -> Self {
+impl From<HyperUnixUri> for HyperUri {
+    fn from(value: HyperUnixUri) -> Self {
         value.hyper_uri
     }
 }
@@ -63,20 +63,22 @@ impl From<UnixSocketUri> for HyperUri {
 pin_project! {
     /// A hyper I/O-compatible wrapper for tokio-net's UnixStream
     #[derive(Debug)]
-    pub struct UnixSocketStream {
+    pub struct HyperUnixStream {
         #[pin]
         stream: UnixStream
     }
 }
 
-impl UnixSocketStream {
-    async fn connect(socket_path: PathBuf) -> Result<UnixSocketStream, io::Error> {
+impl HyperUnixStream {
+    /// Manually create the stream by connecting to the given socket path, this is useful when you're
+    /// not using hyper-util's high-level Client, but the low-level hyper primitives
+    pub async fn connect(socket_path: PathBuf) -> Result<HyperUnixStream, io::Error> {
         let stream = UnixStream::connect(socket_path).await?;
-        Ok(UnixSocketStream { stream })
+        Ok(HyperUnixStream { stream })
     }
 }
 
-impl hyper::rt::Read for UnixSocketStream {
+impl hyper::rt::Read for HyperUnixStream {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -87,7 +89,7 @@ impl hyper::rt::Read for UnixSocketStream {
     }
 }
 
-impl hyper::rt::Write for UnixSocketStream {
+impl hyper::rt::Write for HyperUnixStream {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -113,18 +115,18 @@ impl hyper::rt::Write for UnixSocketStream {
 
 /// A hyper connector for a Unix socket
 #[derive(Debug, Clone, Copy, Default)]
-pub struct UnixSocketConnector;
+pub struct HyperUnixConnector;
 
-impl Unpin for UnixSocketConnector {}
+impl Unpin for HyperUnixConnector {}
 
-impl Connection for UnixSocketStream {
+impl Connection for HyperUnixStream {
     fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
         Connected::new()
     }
 }
 
-impl Service<HyperUri> for UnixSocketConnector {
-    type Response = UnixSocketStream;
+impl Service<HyperUri> for HyperUnixConnector {
+    type Response = HyperUnixStream;
 
     type Error = io::Error;
 
@@ -137,8 +139,8 @@ impl Service<HyperUri> for UnixSocketConnector {
 
     fn call(&mut self, req: HyperUri) -> Self::Future {
         Box::pin(async move {
-            let socket_path = UnixSocketUri::decode(&req)?;
-            UnixSocketStream::connect(socket_path).await
+            let socket_path = HyperUnixUri::decode(&req)?;
+            HyperUnixStream::connect(socket_path).await
         })
     }
 }

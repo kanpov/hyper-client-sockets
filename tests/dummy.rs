@@ -1,16 +1,16 @@
 use http_body_util::Full;
-use hyper::{body::Bytes, Request, Uri};
+use hyper::{body::Bytes, client::conn::http1, Request, Uri};
 use hyper_client_sockets::{
-    unix::{UnixSocketConnector, UnixSocketUri},
-    vsock::{VsockSocketConnector, VsockSocketUri},
+    unix::{HyperUnixConnector, HyperUnixUri},
+    vsock::HyperVsockStream,
 };
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
 #[tokio::test]
 async fn unix_test() {
-    let client: Client<UnixSocketConnector, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(UnixSocketConnector);
-    let uds_uri: Uri = UnixSocketUri::new("/tmp/uds-listener.sock", "/get/ok")
+    let client: Client<HyperUnixConnector, Full<Bytes>> =
+        Client::builder(TokioExecutor::new()).build(HyperUnixConnector);
+    let uds_uri: Uri = HyperUnixUri::new("/tmp/uds-listener.sock", "/get/ok")
         .unwrap()
         .into();
     let request = Request::builder()
@@ -23,16 +23,23 @@ async fn unix_test() {
 
 #[tokio::test]
 async fn vsock_test() {
-    let client: Client<VsockSocketConnector, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(VsockSocketConnector);
-    let vsock_uri: Uri = VsockSocketUri::new(1, 8000, "/").unwrap().into();
+    let vsock_stream = HyperVsockStream::connect(1, 8000).await.unwrap();
+    let (mut send_req, conn) = http1::Builder::new()
+        .handshake::<HyperVsockStream, Full<Bytes>>(vsock_stream)
+        .await
+        .unwrap();
+    tokio::spawn(conn);
+
+    // let client: Client<VsockSocketConnector, Full<Bytes>> =
+    //     Client::builder(TokioExecutor::new()).build(VsockSocketConnector);
+    // let vsock_uri: Uri = VsockSocketUri::new(1, 8000, "/").unwrap().into();
     let request = Request::builder()
-        .uri(vsock_uri)
+        .uri(Uri::from_static("/"))
         .header("Content-Type", "application/json")
         .body(Full::new(Bytes::from(
             r#"{"first": "a", "middle": "b", "last": "c"}"#,
         )))
         .unwrap();
-    let response = client.request(request).await.unwrap();
+    let response = send_req.send_request(request).await.unwrap();
     dbg!(response);
 }
