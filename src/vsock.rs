@@ -52,10 +52,7 @@ impl HyperVsockUri {
 
                 Ok((cid, port))
             }
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "URI host must be present",
-            )),
+            None => Err(io_input_err("URI host must be present")),
         }
     }
 }
