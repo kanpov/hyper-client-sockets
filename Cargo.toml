@@ -1,0 +1,33 @@
+[package]
+name = "hyper-client-sockets"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex = "0.4.3"
+hyper = { version = "1.4.1", features = ["client"] }
+hyper-util = { version = "0.1.6", features = [
+    "client-legacy",
+    "client",
+    "tokio",
+    "http1",
+] }
+pin-project-lite = "0.2.14"
+tower-service = "0.3.2"
+
+tokio = { version = "1.38.0", features = ["net"], optional = true }
+
+[dev-dependencies]
+http-body-util = "0.1.2"
+hyper-client-sockets = { path = ".", features = [
+    "unix",
+    "vsock",
+    "firecracker",
+] }
+tokio = { version = "1.38.0", features = ["macros"] }
+
+[features]
+default = []
+unix = ["dep:tokio"]
+vsock = []
+firecracker = []
