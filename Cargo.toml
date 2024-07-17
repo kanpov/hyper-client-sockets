@@ -25,7 +25,10 @@ hyper-client-sockets = { path = ".", features = [
     "vsock",
     "firecracker",
 ] }
-tokio = { version = "1.38.0", features = ["macros"] }
+tokio = { version = "1.38.0", features = ["macros", "fs"] }
+hyper = { version = "1.4.1", features = ["server"] }
+uuid = { version = "1.10.0", features = ["v4"] }
+bytes = "1.6.1"
 
 [features]
 default = []
