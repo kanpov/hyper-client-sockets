@@ -1,8 +1,17 @@
 #[cfg(feature = "unix")]
-pub mod unix;
+mod unix;
+#[cfg(feature = "unix")]
+pub use unix::*;
 
 #[cfg(feature = "vsock")]
-pub mod vsock;
+mod vsock;
+#[cfg(feature = "vsock")]
+pub use vsock::*;
+
+#[cfg(feature = "firecracker")]
+mod firecracker;
+#[cfg(feature = "firecracker")]
+pub use firecracker::*;
 
 fn io_input_err(detail: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, detail)

@@ -1,8 +1,8 @@
 use http_body_util::Full;
 use hyper::{body::Bytes, client::conn::http1, Request, Uri};
 use hyper_client_sockets::{
-    unix::{HyperUnixConnector, HyperUnixUri},
-    vsock::HyperVsockStream,
+    HyperFirecrackerConnector, HyperFirecrackerUri, HyperUnixConnector, HyperUnixUri,
+    HyperVsockStream,
 };
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
@@ -41,5 +41,20 @@ async fn vsock_test() {
         )))
         .unwrap();
     let response = send_req.send_request(request).await.unwrap();
+    dbg!(response);
+}
+
+#[tokio::test]
+async fn firecracker_test() {
+    let client: Client<HyperFirecrackerConnector, Full<Bytes>> =
+        Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector);
+    let fc_uri: Uri = HyperFirecrackerUri::new("/tmp/receiver.sock", 8000, "/")
+        .unwrap()
+        .into();
+    let request = Request::builder()
+        .uri(fc_uri)
+        .body(Full::new(Bytes::new()))
+        .unwrap();
+    let response = client.request(request).await.unwrap();
     dbg!(response);
 }

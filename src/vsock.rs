@@ -22,7 +22,7 @@ pub struct HyperVsockUri {
 impl HyperVsockUri {
     /// Create a new vsock URI with the given vsock CID and port and in-socket URL
     pub fn new(cid: u32, port: u32, url: impl AsRef<str>) -> Result<HyperVsockUri, Box<dyn Error>> {
-        let host = hex::encode(format!("{cid};{port}"));
+        let host = hex::encode(format!("{cid}.{port}"));
         let uri_str = format!("vsock://{host}/{}", url.as_ref().trim_start_matches('/'));
         let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
         Ok(HyperVsockUri { hyper_uri })
@@ -40,8 +40,8 @@ impl HyperVsockUri {
                 let full_str = Vec::from_hex(host)
                     .map_err(|_| io_input_err("URI host must be hex"))
                     .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
-                let splits = full_str.split_once(';').ok_or_else(|| {
-                    io_input_err("URI host could not be split at ; into 2 slices (CID, then port)")
+                let splits = full_str.split_once('.').ok_or_else(|| {
+                    io_input_err("URI host could not be split at . into 2 slices (CID, then port)")
                 })?;
                 let cid: u32 = splits
                     .0

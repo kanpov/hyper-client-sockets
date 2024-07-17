@@ -13,6 +13,8 @@ use tokio::io::{self, AsyncWrite};
 use tokio::net::UnixStream;
 use tower_service::Service;
 
+use crate::io_input_err;
+
 /// A URI that points at a Unix socket and at the URL inside the socket
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HyperUnixUri {
@@ -33,23 +35,16 @@ impl HyperUnixUri {
 
     fn decode(hyper_uri: &HyperUri) -> Result<PathBuf, std::io::Error> {
         if hyper_uri.scheme_str() != Some("unix") {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "URI scheme on a Unix socket must be unix://",
-            ));
+            return Err(io_input_err("URI scheme on a Unix socket must be unix://"));
         }
 
         match hyper_uri.host() {
             Some(host) => {
-                let bytes = Vec::from_hex(host).map_err(|_| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "URI host must be hex")
-                })?;
+                let bytes =
+                    Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
                 Ok(PathBuf::from(String::from_utf8_lossy(&bytes).into_owned()))
             }
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "URI host must be present",
-            )),
+            None => Err(io_input_err("URI host must be present")),
         }
     }
 }
