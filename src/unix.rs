@@ -21,9 +21,12 @@ pub struct UnixSocketUri {
 
 impl UnixSocketUri {
     /// Create a new Unix socket URI from a given socket and in-socket URL
-    pub fn new(socket_path: impl AsRef<Path>, url: &str) -> Result<UnixSocketUri, Box<dyn Error>> {
+    pub fn new(
+        socket_path: impl AsRef<Path>,
+        url: impl AsRef<str>,
+    ) -> Result<UnixSocketUri, Box<dyn Error>> {
         let host = hex::encode(socket_path.as_ref().to_string_lossy().to_string());
-        let uri_str = format!("unix://{host}/{}", url.trim_start_matches('/'));
+        let uri_str = format!("unix://{host}/{}", url.as_ref().trim_start_matches('/'));
         let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
         Ok(UnixSocketUri { hyper_uri })
     }
@@ -108,6 +111,7 @@ impl hyper::rt::Write for UnixSocketStream {
     }
 }
 
+/// A hyper connector for a Unix socket
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnixSocketConnector;
 
