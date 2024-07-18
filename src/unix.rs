@@ -130,3 +130,30 @@ impl Service<Uri> for HyperUnixConnector {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use hyper::Uri;
+
+    use crate::UnixUriExt;
+
+    #[test]
+    fn unix_uri_should_be_constructed_correctly() {
+        let uri_str = format!("unix://{}/route", hex::encode("/tmp/socket.sock"));
+        assert_eq!(
+            Uri::unix("/tmp/socket.sock", "/route").unwrap(),
+            uri_str.parse::<Uri>().unwrap()
+        );
+    }
+
+    #[test]
+    fn unix_uri_should_be_deconstructed_correctly() {
+        let uri = format!("unix://{}/route", hex::encode("/tmp/socket.sock"));
+        assert_eq!(
+            uri.parse::<Uri>().unwrap().parse_unix().unwrap(),
+            PathBuf::from("/tmp/socket.sock")
+        );
+    }
+}

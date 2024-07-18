@@ -142,3 +142,24 @@ impl Service<Uri> for HyperVsockConnector {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use hyper::Uri;
+
+    use crate::VsockUriExt;
+
+    #[test]
+    fn vsock_uri_should_be_constructed_correctly() {
+        let uri = format!("vsock://{}/route", hex::encode("10.20"));
+        assert_eq!(uri.parse::<Uri>().unwrap(), Uri::vsock(10, 20, "/route").unwrap());
+    }
+
+    #[test]
+    fn vsock_uri_should_be_deconstructed_correctly() {
+        let uri = format!("vsock://{}/route", hex::encode("10.20"))
+            .parse::<Uri>()
+            .unwrap();
+        assert_eq!(uri.parse_vsock().unwrap(), (10, 20));
+    }
+}

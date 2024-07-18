@@ -166,3 +166,31 @@ impl Service<Uri> for HyperFirecrackerConnector {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use hyper::Uri;
+
+    use crate::FirecrackerUriExt;
+
+    #[test]
+    fn firecracker_uri_should_be_constructed_correctly() {
+        let uri_str = format!("fc://{}/route", hex::encode("/tmp/socket.sock:1000"));
+        assert_eq!(
+            Uri::firecracker("/tmp/socket.sock", 1000, "/route").unwrap(),
+            uri_str.parse::<Uri>().unwrap()
+        );
+    }
+
+    #[test]
+    fn firecracker_uri_should_be_deconstructed_correctly() {
+        let uri = format!("fc://{}/route", hex::encode("/tmp/socket.sock:1000"))
+            .parse::<Uri>()
+            .unwrap();
+        let (socket_path, port) = uri.parse_firecracker().unwrap();
+        assert_eq!(socket_path, PathBuf::from("/tmp/socket.sock"));
+        assert_eq!(port, 1000);
+    }
+}
