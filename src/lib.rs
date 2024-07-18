@@ -13,6 +13,7 @@ mod firecracker;
 #[cfg(feature = "firecracker")]
 pub use firecracker::*;
 
+#[allow(unused)]
 fn io_input_err(detail: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, detail)
 }
