@@ -2,6 +2,13 @@
 name = "hyper-client-sockets"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "A Hyper client library allowing access to Unix, VSock and Firecracker sockets"
+rust-version = "1.63"
+repository = "https://github.com/kanpov/hyper-client-sockets"
+readme = "README.md"
+keywords = ["hyper", "client", "sockets"]
+categories = ["web-programming", "web-programming::http-client"]
 
 [dependencies]
 hex = "0.4.3"
