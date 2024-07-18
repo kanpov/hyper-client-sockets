@@ -1,7 +1,7 @@
 use std::{error::Error, future::Future, pin::Pin, task::Poll};
 
 use hex::FromHex;
-use hyper::Uri as HyperUri;
+use hyper::Uri;
 use hyper_util::{
     client::legacy::connect::{Connected, Connection},
     rt::TokioIo,
@@ -13,27 +13,29 @@ use tower_service::Service;
 
 use crate::io_input_err;
 
-/// A URI that points at a vsock's CID and port and at the URL inside the socket
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HyperVsockUri {
-    hyper_uri: HyperUri,
+/// An extension trait for hyper URI allowing work with vsock URIs
+pub trait VsockUriExt {
+    /// Create a new vsock URI with the given vsock CID, port and in-socket URL
+    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>>;
+
+    /// Deconstruct this vsock URI into its CID and port
+    fn parse_vsock(&self) -> Result<(u32, u32), std::io::Error>;
 }
 
-impl HyperVsockUri {
-    /// Create a new vsock URI with the given vsock CID and port and in-socket URL
-    pub fn new(cid: u32, port: u32, url: impl AsRef<str>) -> Result<HyperVsockUri, Box<dyn Error>> {
+impl VsockUriExt for Uri {
+    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>> {
         let host = hex::encode(format!("{cid}.{port}"));
         let uri_str = format!("vsock://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
-        Ok(HyperVsockUri { hyper_uri })
+        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        Ok(uri)
     }
 
-    fn decode(hyper_uri: &HyperUri) -> Result<(u32, u32), std::io::Error> {
-        if hyper_uri.scheme_str() != Some("vsock") {
+    fn parse_vsock(&self) -> Result<(u32, u32), std::io::Error> {
+        if self.scheme_str() != Some("vsock") {
             return Err(io_input_err("URI scheme on a vsock socket must be vsock://"));
         }
 
-        match hyper_uri.host() {
+        match self.host() {
             Some(host) => {
                 let full_str = Vec::from_hex(host)
                     .map_err(|_| io_input_err("URI host must be hex"))
@@ -54,12 +56,6 @@ impl HyperVsockUri {
             }
             None => Err(io_input_err("URI host must be present")),
         }
-    }
-}
-
-impl From<HyperVsockUri> for HyperUri {
-    fn from(value: HyperVsockUri) -> Self {
-        value.hyper_uri
     }
 }
 
@@ -128,7 +124,7 @@ impl Connection for HyperVsockStream {
     }
 }
 
-impl Service<HyperUri> for HyperVsockConnector {
+impl Service<Uri> for HyperVsockConnector {
     type Response = HyperVsockStream;
 
     type Error = std::io::Error;
@@ -139,9 +135,9 @@ impl Service<HyperUri> for HyperVsockConnector {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: HyperUri) -> Self::Future {
+    fn call(&mut self, req: Uri) -> Self::Future {
         Box::pin(async move {
-            let (cid, port) = HyperVsockUri::decode(&req)?;
+            let (cid, port) = req.parse_vsock()?;
             HyperVsockStream::connect(cid, port).await
         })
     }

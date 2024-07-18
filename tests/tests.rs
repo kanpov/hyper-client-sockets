@@ -4,8 +4,8 @@ use bytes::{Bytes, BytesMut};
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response, Uri};
 use hyper_client_sockets::{
-    HyperFirecrackerConnector, HyperFirecrackerStream, HyperFirecrackerUri, HyperUnixConnector, HyperUnixStream,
-    HyperUnixUri, HyperVsockConnector, HyperVsockStream, HyperVsockUri,
+    FirecrackerUriExt, HyperFirecrackerConnector, HyperFirecrackerStream, HyperUnixConnector, HyperUnixStream,
+    HyperVsockConnector, HyperVsockStream, UnixUriExt, VsockUriExt,
 };
 use hyper_util::{
     client::legacy::Client,
@@ -119,9 +119,8 @@ async fn start_firecracker_server() -> (PathBuf, u32) {
 async fn unix_connectivity_with_hyper_util() {
     let path = start_unix_server().await;
     let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperUnixConnector);
-    let unix_uri: Uri = HyperUnixUri::new(path, "/").unwrap().into();
     let request = Request::builder()
-        .uri(unix_uri)
+        .uri(Uri::unix(path, "/").unwrap())
         .method("GET")
         .body(Full::new(Bytes::new()))
         .unwrap();
@@ -151,9 +150,13 @@ async fn unix_connectivity_with_raw_hyper() {
 async fn vsock_connectivity_with_hyper_util() {
     let (cid, port) = start_vsock_server().await;
     let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperVsockConnector);
-    let vsock_uri: Uri = HyperVsockUri::new(cid, port, "/").unwrap().into();
     let mut response = client
-        .request(Request::builder().uri(vsock_uri).body(Full::new(Bytes::new())).unwrap())
+        .request(
+            Request::builder()
+                .uri(Uri::vsock(cid, port, "/").unwrap())
+                .body(Full::new(Bytes::new()))
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_response_ok(&mut response).await;
@@ -179,11 +182,10 @@ async fn vsock_connectivity_with_raw_hyper() {
 async fn firecracker_connectivity_with_hyper_util() {
     let (path, port) = start_firecracker_server().await;
     let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector);
-    let firecracker_uri: Uri = HyperFirecrackerUri::new(path, port, "/").unwrap().into();
     let mut response = client
         .request(
             Request::builder()
-                .uri(firecracker_uri)
+                .uri(Uri::firecracker(path, port, "/").unwrap())
                 .body(Full::new(Bytes::new()))
                 .unwrap(),
         )
@@ -200,14 +202,8 @@ async fn firecracker_connectivity_with_raw_hyper() {
         .await
         .unwrap();
     tokio::task::spawn(conn);
-    let firecracker_uri: Uri = HyperFirecrackerUri::new(&path, port, "/").unwrap().into();
     let mut response = make_req
-        .send_request(
-            Request::builder()
-                .uri(firecracker_uri)
-                .body(Full::new(Bytes::new()))
-                .unwrap(),
-        )
+        .send_request(Request::builder().uri("/").body(Full::new(Bytes::new())).unwrap())
         .await
         .unwrap();
     assert_response_ok(&mut response).await;

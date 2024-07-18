@@ -8,7 +8,7 @@ use std::{
 };
 
 use hex::FromHex;
-use hyper::Uri as HyperUri;
+use hyper::Uri;
 use hyper_util::{
     client::legacy::connect::{Connected, Connection},
     rt::TokioIo,
@@ -22,36 +22,40 @@ use tower_service::Service;
 
 use crate::io_input_err;
 
-/// A URI that points at a Firecracker socket, the guest port of the connection and at the URL inside the socket
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HyperFirecrackerUri {
-    hyper_uri: HyperUri,
-}
-
-impl HyperFirecrackerUri {
-    /// Create a new Firecracker socket URI from a given socket, guest port and in-socket URL
-    pub fn new(
+/// An extension trait for hyper URI allowing work with Firecracker URIs
+pub trait FirecrackerUriExt {
+    /// Create a new Firecracker URI with the given host socket path, guest port and in-socket URL
+    fn firecracker(
         host_socket_path: impl AsRef<Path>,
         guest_port: u32,
         url: impl AsRef<str>,
-    ) -> Result<HyperFirecrackerUri, Box<dyn Error>> {
+    ) -> Result<Uri, Box<dyn Error>>;
+
+    /// Deconstruct this Firecracker URI into its host socket path and guest port
+    fn parse_firecracker(&self) -> Result<(PathBuf, u32), std::io::Error>;
+}
+
+impl FirecrackerUriExt for Uri {
+    fn firecracker(
+        host_socket_path: impl AsRef<Path>,
+        guest_port: u32,
+        url: impl AsRef<str>,
+    ) -> Result<Uri, Box<dyn Error>> {
         let host = hex::encode(format!(
             "{}:{guest_port}",
             host_socket_path.as_ref().to_string_lossy().to_string()
         ));
         let uri_str = format!("fc://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
-        Ok(HyperFirecrackerUri { hyper_uri })
+        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        Ok(uri)
     }
 
-    fn decode(hyper_uri: &HyperUri) -> Result<(PathBuf, u32), std::io::Error> {
-        if hyper_uri.scheme_str() != Some("fc") {
+    fn parse_firecracker(&self) -> Result<(PathBuf, u32), std::io::Error> {
+        if self.scheme_str() != Some("fc") {
             return Err(io_input_err("URI scheme on a Firecracker socket must be fc://"));
         }
 
-        let host = hyper_uri
-            .host()
-            .ok_or_else(|| io_input_err("URI host must be present"))?;
+        let host = self.host().ok_or_else(|| io_input_err("URI host must be present"))?;
         let hex_decoded = Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
         let full_str = String::from_utf8_lossy(&hex_decoded).into_owned();
         let splits = full_str
@@ -68,13 +72,8 @@ impl HyperFirecrackerUri {
     }
 }
 
-impl From<HyperFirecrackerUri> for HyperUri {
-    fn from(value: HyperFirecrackerUri) -> Self {
-        value.hyper_uri
-    }
-}
-
 pin_project! {
+    /// A hyper I/O-compatible wrapper for a Firecracker socket
     #[derive(Debug)]
     pub struct HyperFirecrackerStream {
         #[pin]
@@ -149,7 +148,7 @@ impl Connection for HyperFirecrackerStream {
     }
 }
 
-impl Service<HyperUri> for HyperFirecrackerConnector {
+impl Service<Uri> for HyperFirecrackerConnector {
     type Response = HyperFirecrackerStream;
 
     type Error = io::Error;
@@ -160,9 +159,9 @@ impl Service<HyperUri> for HyperFirecrackerConnector {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: HyperUri) -> Self::Future {
+    fn call(&mut self, req: Uri) -> Self::Future {
         Box::pin(async move {
-            let (host_socket_path, guest_port) = HyperFirecrackerUri::decode(&req)?;
+            let (host_socket_path, guest_port) = req.parse_firecracker()?;
             HyperFirecrackerStream::connect(host_socket_path, guest_port).await
         })
     }

@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::task::Poll;
 
 use hex::FromHex;
-use hyper::Uri as HyperUri;
+use hyper::Uri;
 use hyper_util::client::legacy::connect::{Connected, Connection};
 use hyper_util::rt::TokioIo;
 use pin_project_lite::pin_project;
@@ -15,39 +15,35 @@ use tower_service::Service;
 
 use crate::io_input_err;
 
-/// A URI that points at a Unix socket and at the URL inside the socket
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HyperUnixUri {
-    hyper_uri: HyperUri,
+/// An extension trait for hyper URI allowing work with Unix URIs
+pub trait UnixUriExt {
+    /// Create a new Unix URI with the given socket path and in-socket URL
+    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>>;
+
+    /// Try to deconstruct this Unix URI's socket path
+    fn parse_unix(&self) -> Result<PathBuf, std::io::Error>;
 }
 
-impl HyperUnixUri {
-    /// Create a new Unix socket URI from a given socket and in-socket URL
-    pub fn new(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<HyperUnixUri, Box<dyn Error>> {
+impl UnixUriExt for Uri {
+    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>> {
         let host = hex::encode(socket_path.as_ref().to_string_lossy().to_string());
         let uri_str = format!("unix://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let hyper_uri = uri_str.parse::<HyperUri>().map_err(|err| Box::new(err))?;
-        Ok(HyperUnixUri { hyper_uri })
+        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        Ok(uri)
     }
 
-    fn decode(hyper_uri: &HyperUri) -> Result<PathBuf, std::io::Error> {
-        if hyper_uri.scheme_str() != Some("unix") {
+    fn parse_unix(&self) -> Result<PathBuf, std::io::Error> {
+        if self.scheme_str() != Some("unix") {
             return Err(io_input_err("URI scheme on a Unix socket must be unix://"));
         }
 
-        match hyper_uri.host() {
+        match self.host() {
             Some(host) => {
                 let bytes = Vec::from_hex(host).map_err(|_| io_input_err("URI host must be hex"))?;
                 Ok(PathBuf::from(String::from_utf8_lossy(&bytes).into_owned()))
             }
             None => Err(io_input_err("URI host must be present")),
         }
-    }
-}
-
-impl From<HyperUnixUri> for HyperUri {
-    fn from(value: HyperUnixUri) -> Self {
-        value.hyper_uri
     }
 }
 
@@ -116,7 +112,7 @@ impl Connection for HyperUnixStream {
     }
 }
 
-impl Service<HyperUri> for HyperUnixConnector {
+impl Service<Uri> for HyperUnixConnector {
     type Response = HyperUnixStream;
 
     type Error = io::Error;
@@ -127,9 +123,9 @@ impl Service<HyperUri> for HyperUnixConnector {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: HyperUri) -> Self::Future {
+    fn call(&mut self, req: Uri) -> Self::Future {
         Box::pin(async move {
-            let socket_path = HyperUnixUri::decode(&req)?;
+            let socket_path = req.parse_unix()?;
             HyperUnixStream::connect(socket_path).await
         })
     }
