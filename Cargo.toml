@@ -1,6 +1,6 @@
 [package]
 name = "hyper-client-sockets"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "A Hyper client library allowing access to Unix, VSock and Firecracker sockets"
@@ -13,11 +13,11 @@ categories = ["web-programming", "web-programming::http-client"]
 [dependencies]
 hex = "0.4.3"
 hyper = { version = "1.4.1", features = ["client"] }
-hyper-util = { version = "0.1.6", features = ["client-legacy", "tokio"] }
+hyper-util = { version = "0.1.9", features = ["client-legacy", "tokio"] }
 pin-project-lite = "0.2.14"
-tower-service = "0.3.2"
+tower-service = "0.3.3"
 
-tokio = { version = "1.38.0", features = ["net", "io-util"], optional = true }
+tokio = { version = "1.40.0", features = ["net", "io-util"], optional = true }
 tokio-vsock = { version = "0.5.0", optional = true }
 
 [dev-dependencies]
@@ -31,7 +31,7 @@ hyper-client-sockets = { path = ".", features = [
 tokio = { version = "1.38.0", features = ["macros", "fs"] }
 hyper = { version = "1.4.1", features = ["server"] }
 uuid = { version = "1.10.0", features = ["v4"] }
-bytes = "1.6.1"
+bytes = "1.7.2"
 rand = "0.8.5"
 
 [features]
