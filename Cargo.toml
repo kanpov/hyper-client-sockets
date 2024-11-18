@@ -1,6 +1,6 @@
 [package]
 name = "hyper-client-sockets"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 description = "A Hyper client library allowing access to Unix, VSock and Firecracker sockets"
@@ -18,7 +18,7 @@ pin-project-lite = "0.2.14"
 tower-service = "0.3.3"
 
 tokio = { version = "1.40.0", features = ["net", "io-util"], optional = true }
-tokio-vsock = { version = "0.5.0", optional = true }
+tokio-vsock = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 http-body-util = "0.1.2"
