@@ -9,8 +9,6 @@ use hyper::Uri;
 use hyper_util::client::legacy::connect::{Connected, Connection};
 use hyper_util::rt::TokioIo;
 use pin_project_lite::pin_project;
-use tokio::io::{self, AsyncWrite};
-use tokio::net::UnixStream;
 use tower_service::Service;
 
 use crate::io_input_err;

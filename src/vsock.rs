@@ -7,8 +7,6 @@ use hyper_util::{
     rt::TokioIo,
 };
 use pin_project_lite::pin_project;
-use tokio::io::AsyncWrite;
-use tokio_vsock::{VsockAddr, VsockStream};
 use tower_service::Service;
 
 use crate::io_input_err;
