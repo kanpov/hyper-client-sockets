@@ -41,16 +41,18 @@ futures-util = { version = "0.3.31", default-features = false, features = [
 vsock = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
+# general utils
 http-body-util = "0.1.2"
 hyper-util = { version = "0.1.6", features = ["http1"] }
 hyper-client-sockets = { path = ".", features = ["full"] }
-tokio = { version = "1.38.0", features = ["macros", "fs"] }
 hyper = { version = "1.4.1", features = ["server"] }
 uuid = { version = "1.10.0", features = ["v4"] }
 bytes = "1.7.2"
 rand = "0.8.5"
-smol-macros = "0.1.1"
-macro_rules_attribute = "0.2.0"
+# concrete runtimes
+tokio = { version = "1.38.0", features = ["macros", "fs"] }
+async-executor = "1.13.1"
+smol-hyper = { version = "0.1.1", features = ["async-executor"] }
 
 [features]
 default = []
