@@ -9,7 +9,7 @@ use hyper_client_sockets::{
     Backend,
 };
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
-use tokio_vsock::VsockAddr;
+use vsock::VsockAddr;
 
 mod common;
 

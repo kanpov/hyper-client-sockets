@@ -30,6 +30,7 @@ pub async fn hello_world_route(_: Request<hyper::body::Incoming>) -> Result<Resp
     Ok(Response::new(Full::new(Bytes::from("Hello World!"))))
 }
 
+#[allow(unused)]
 pub fn start_unix_server() -> PathBuf {
     let path = PathBuf::from(format!("/tmp/{}", Uuid::new_v4()));
 
@@ -61,6 +62,7 @@ pub fn start_unix_server() -> PathBuf {
     path
 }
 
+#[allow(unused)]
 pub fn start_vsock_server() -> (u32, u32) {
     let port = rand::thread_rng().gen_range(10000..=65536) as u32;
 
@@ -82,6 +84,7 @@ pub fn start_vsock_server() -> (u32, u32) {
     (VMADDR_CID_LOCAL, port)
 }
 
+#[allow(unused)]
 pub fn start_firecracker_server() -> (PathBuf, u32) {
     let path = PathBuf::from(format!("/tmp/{}", Uuid::new_v4()));
     if path.exists() {
