@@ -1,15 +1,15 @@
-use std::{error::Error, future::Future, pin::Pin, task::Poll};
+use std::{
+    error::Error,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use hex::FromHex;
 use hyper::Uri;
-use hyper_util::{
-    client::legacy::connect::{Connected, Connection},
-    rt::TokioIo,
-};
 use pin_project_lite::pin_project;
-use tower_service::Service;
+use vsock::VsockAddr;
 
-use crate::io_input_err;
+use crate::{io_input_err, Backend};
 
 /// An extension trait for hyper URI allowing work with vsock URIs
 pub trait VsockUriExt {
@@ -58,86 +58,152 @@ impl VsockUriExt for Uri {
 }
 
 pin_project! {
-    /// A hyper I/O-compatible wrapper for tokio-vsock's VsockSteram
-    #[derive(Debug)]
     pub struct HyperVsockStream {
-        #[pin]
-        stream: VsockStream
+        #[pin] inner: VsockStreamInner
     }
 }
 
 impl HyperVsockStream {
-    /// Manually create this stream by connecting to the given vsock CID and port, this is useful when you're
-    /// not using hyper-util's high-level Client, but the low-level hyper primitives
-    pub async fn connect(cid: u32, port: u32) -> Result<HyperVsockStream, std::io::Error> {
-        let stream = VsockStream::connect(VsockAddr::new(cid, port)).await?;
-        Ok(HyperVsockStream { stream })
+    pub async fn connect(vsock_addr: VsockAddr, backend: Backend) -> Result<Self, std::io::Error> {
+        match backend {
+            Backend::Tokio => {
+                let stream = tokio_vsock::VsockStream::connect(vsock_addr).await?;
+                Ok(Self {
+                    inner: VsockStreamInner::Tokio {
+                        stream: hyper_util::rt::TokioIo::new(stream),
+                    },
+                })
+            }
+            Backend::AsyncIo => {
+                use std::os::fd::{AsFd, AsRawFd, FromRawFd};
+
+                let stream = vsock::VsockStream::connect(&vsock_addr)?;
+                let stream = unsafe { std::fs::File::from_raw_fd(stream.as_fd().as_raw_fd()) };
+                let stream = async_io::Async::new(stream)?;
+                Ok(Self {
+                    inner: VsockStreamInner::AsyncIo {
+                        stream: smol_hyper::rt::FuturesIo::new(stream),
+                    },
+                })
+            }
+        }
+    }
+}
+
+pin_project! {
+    #[project = VsockStreamProj]
+    enum VsockStreamInner {
+        #[cfg(feature = "tokio-backend")]
+        Tokio { #[pin] stream: hyper_util::rt::TokioIo<tokio_vsock::VsockStream> },
+        #[cfg(feature = "async-io-backend")]
+        AsyncIo { #[pin] stream: smol_hyper::rt::FuturesIo<async_io::Async<std::fs::File>> }
     }
 }
 
 impl hyper::rt::Read for HyperVsockStream {
     fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
         buf: hyper::rt::ReadBufCursor<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        let mut tokio_io = TokioIo::new(self.project().stream);
-        Pin::new(&mut tokio_io).poll_read(cx, buf)
+    ) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            VsockStreamProj::Tokio { stream } => stream.poll_read(cx, buf),
+            #[cfg(feature = "async-io-backend")]
+            VsockStreamProj::AsyncIo { stream } => stream.poll_read(cx, buf),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 }
 
 impl hyper::rt::Write for HyperVsockStream {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &[u8],
-    ) -> std::task::Poll<Result<usize, std::io::Error>> {
-        self.project().stream.poll_write(cx, buf)
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            VsockStreamProj::Tokio { stream } => stream.poll_write(cx, buf),
+            #[cfg(feature = "async-io-backend")]
+            VsockStreamProj::AsyncIo { stream } => stream.poll_write(cx, buf),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        self.project().stream.poll_flush(cx)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            VsockStreamProj::Tokio { stream } => stream.poll_flush(cx),
+            #[cfg(feature = "async-io-backend")]
+            VsockStreamProj::AsyncIo { stream } => stream.poll_flush(cx),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        self.project().stream.poll_shutdown(cx)
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            VsockStreamProj::Tokio { stream } => stream.poll_shutdown(cx),
+            #[cfg(feature = "async-io-backend")]
+            VsockStreamProj::AsyncIo { stream } => stream.poll_shutdown(cx),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 }
 
-/// A hyper connector for a vsock
-#[derive(Debug, Clone, Copy, Default)]
-pub struct HyperVsockConnector;
+#[cfg(feature = "connector")]
+pub mod connector {
+    use std::{future::Future, pin::Pin, task::Poll};
 
-impl Unpin for HyperVsockConnector {}
+    use http::Uri;
+    use hyper_util::client::legacy::connect::{Connected, Connection};
+    use tower_service::Service;
+    use vsock::VsockAddr;
 
-impl Connection for HyperVsockStream {
-    fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
-        Connected::new()
-    }
-}
+    use crate::Backend;
 
-impl Service<Uri> for HyperVsockConnector {
-    type Response = HyperVsockStream;
+    use super::{HyperVsockStream, VsockUriExt};
 
-    type Error = std::io::Error;
-
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+    /// A hyper connector for a vsock
+    #[derive(Debug, Clone, Copy)]
+    pub struct HyperVsockConnector {
+        backend: Backend,
     }
 
-    fn call(&mut self, req: Uri) -> Self::Future {
-        Box::pin(async move {
-            let (cid, port) = req.parse_vsock()?;
-            HyperVsockStream::connect(cid, port).await
-        })
+    impl HyperVsockConnector {
+        pub fn new(backend: Backend) -> Self {
+            Self { backend }
+        }
+    }
+
+    impl Unpin for HyperVsockConnector {}
+
+    impl Connection for HyperVsockStream {
+        fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
+            Connected::new()
+        }
+    }
+
+    impl Service<Uri> for HyperVsockConnector {
+        type Response = HyperVsockStream;
+
+        type Error = std::io::Error;
+
+        type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+        fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: Uri) -> Self::Future {
+            let backend = self.backend;
+
+            Box::pin(async move {
+                let (cid, port) = req.parse_vsock()?;
+                HyperVsockStream::connect(VsockAddr::new(cid, port), backend).await
+            })
+        }
     }
 }
 

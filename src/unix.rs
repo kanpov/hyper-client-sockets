@@ -1,32 +1,29 @@
-use std::error::Error;
-use std::future::Future;
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::task::Poll;
+use std::{
+    path::{Path, PathBuf},
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use hex::FromHex;
-use hyper::Uri;
-use hyper_util::client::legacy::connect::{Connected, Connection};
-use hyper_util::rt::TokioIo;
+use http::Uri;
 use pin_project_lite::pin_project;
-use tower_service::Service;
 
-use crate::io_input_err;
+use crate::{io_input_err, Backend};
 
 /// An extension trait for hyper URI allowing work with Unix URIs
 pub trait UnixUriExt {
     /// Create a new Unix URI with the given socket path and in-socket URL
-    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>>;
+    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, http::uri::InvalidUri>;
 
     /// Try to deconstruct this Unix URI's socket path
     fn parse_unix(&self) -> Result<PathBuf, std::io::Error>;
 }
 
 impl UnixUriExt for Uri {
-    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>> {
+    fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, http::uri::InvalidUri> {
         let host = hex::encode(socket_path.as_ref().to_string_lossy().to_string());
         let uri_str = format!("unix://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        let uri = uri_str.parse::<Uri>()?;
         Ok(uri)
     }
 
@@ -46,86 +43,149 @@ impl UnixUriExt for Uri {
 }
 
 pin_project! {
-    /// A hyper I/O-compatible wrapper for tokio-net's UnixStream
-    #[derive(Debug)]
     pub struct HyperUnixStream {
-        #[pin]
-        stream: UnixStream
+        #[pin] inner: UnixStreamInner
     }
 }
 
 impl HyperUnixStream {
-    /// Manually create the stream by connecting to the given socket path, this is useful when you're
-    /// not using hyper-util's high-level Client, but the low-level hyper primitives
-    pub async fn connect(socket_path: impl AsRef<Path>) -> Result<HyperUnixStream, io::Error> {
-        let stream = UnixStream::connect(socket_path).await?;
-        Ok(HyperUnixStream { stream })
+    pub async fn connect(socket_path: impl AsRef<Path>, backend: Backend) -> Result<Self, std::io::Error> {
+        match backend {
+            #[cfg(feature = "tokio-backend")]
+            Backend::Tokio => Ok(Self {
+                inner: UnixStreamInner::Tokio {
+                    stream: hyper_util::rt::TokioIo::new(tokio::net::UnixStream::connect(socket_path.as_ref()).await?),
+                },
+            }),
+            #[cfg(feature = "async-io-backend")]
+            Backend::AsyncIo => {
+                let async_stream =
+                    async_io::Async::<std::os::unix::net::UnixStream>::connect(socket_path.as_ref()).await?;
+                Ok(Self {
+                    inner: UnixStreamInner::AsyncIo {
+                        stream: smol_hyper::rt::FuturesIo::new(async_stream),
+                    },
+                })
+            }
+        }
+    }
+}
+
+pin_project! {
+    #[project = UnixStreamProj]
+    enum UnixStreamInner {
+        #[cfg(feature = "tokio-backend")]
+        Tokio { #[pin] stream: hyper_util::rt::TokioIo<tokio::net::UnixStream> },
+        #[cfg(feature = "async-io-backend")]
+        AsyncIo {
+            #[pin] stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
+        },
     }
 }
 
 impl hyper::rt::Read for HyperUnixStream {
     fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
         buf: hyper::rt::ReadBufCursor<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        let mut tokio_io = TokioIo::new(self.project().stream);
-        Pin::new(&mut tokio_io).poll_read(cx, buf)
+    ) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            UnixStreamProj::Tokio { stream } => stream.poll_read(cx, buf),
+            #[cfg(feature = "async-io-backend")]
+            UnixStreamProj::AsyncIo { stream } => stream.poll_read(cx, buf),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 }
 
 impl hyper::rt::Write for HyperUnixStream {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &[u8],
-    ) -> std::task::Poll<Result<usize, std::io::Error>> {
-        self.project().stream.poll_write(cx, buf)
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            UnixStreamProj::Tokio { stream } => stream.poll_write(cx, buf),
+            #[cfg(feature = "async-io-backend")]
+            UnixStreamProj::AsyncIo { stream } => stream.poll_write(cx, buf),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        self.project().stream.poll_flush(cx)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            UnixStreamProj::Tokio { stream } => stream.poll_flush(cx),
+            #[cfg(feature = "async-io-backend")]
+            UnixStreamProj::AsyncIo { stream } => stream.poll_flush(cx),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
-        self.project().stream.poll_shutdown(cx)
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+        match self.project().inner.project() {
+            #[cfg(feature = "tokio-backend")]
+            UnixStreamProj::Tokio { stream } => stream.poll_shutdown(cx),
+            #[cfg(feature = "async-io-backend")]
+            UnixStreamProj::AsyncIo { stream } => stream.poll_shutdown(cx),
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
+        }
     }
 }
 
-/// A hyper connector for a Unix socket
-#[derive(Debug, Clone, Copy, Default)]
-pub struct HyperUnixConnector;
+#[cfg(feature = "connector")]
+pub mod connector {
+    use std::{future::Future, pin::Pin, task::Poll};
 
-impl Unpin for HyperUnixConnector {}
+    use http::Uri;
+    use hyper_util::client::legacy::connect::{Connected, Connection};
+    use tower_service::Service;
 
-impl Connection for HyperUnixStream {
-    fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
-        Connected::new()
-    }
-}
+    use crate::Backend;
 
-impl Service<Uri> for HyperUnixConnector {
-    type Response = HyperUnixStream;
+    use super::{HyperUnixStream, UnixUriExt};
 
-    type Error = io::Error;
-
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+    /// A hyper connector for a Unix socket
+    #[derive(Debug, Clone, Copy)]
+    pub struct HyperUnixConnector {
+        backend: Backend,
     }
 
-    fn call(&mut self, req: Uri) -> Self::Future {
-        Box::pin(async move {
-            let socket_path = req.parse_unix()?;
-            HyperUnixStream::connect(socket_path).await
-        })
+    impl HyperUnixConnector {
+        pub fn new(backend: Backend) -> Self {
+            Self { backend }
+        }
+    }
+
+    impl Unpin for HyperUnixConnector {}
+
+    impl Connection for HyperUnixStream {
+        fn connected(&self) -> hyper_util::client::legacy::connect::Connected {
+            Connected::new()
+        }
+    }
+
+    impl Service<Uri> for HyperUnixConnector {
+        type Response = HyperUnixStream;
+
+        type Error = std::io::Error;
+
+        type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+        fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, req: Uri) -> Self::Future {
+            let backend = self.backend;
+
+            Box::pin(async move {
+                let socket_path = req.parse_unix()?;
+                HyperUnixStream::connect(socket_path, backend).await
+            })
+        }
     }
 }
 

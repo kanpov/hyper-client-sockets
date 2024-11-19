@@ -13,9 +13,15 @@ mod firecracker;
 #[cfg(feature = "firecracker")]
 pub use firecracker::*;
 
-mod stream;
-
 #[allow(unused)]
 fn io_input_err(detail: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, detail)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backend {
+    #[cfg(feature = "tokio-backend")]
+    Tokio,
+    #[cfg(feature = "async-io-backend")]
+    AsyncIo,
 }
