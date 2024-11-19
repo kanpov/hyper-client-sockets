@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![allow(unused)]
 
 #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
 #[cfg(feature = "unix")]
@@ -12,7 +13,7 @@ pub mod vsock;
 #[cfg(feature = "firecracker")]
 pub mod firecracker;
 
-#[cfg(feature = "vsock")]
+#[cfg(all(feature = "vsock", feature = "tokio-backend"))]
 pub(crate) mod vsock_internal;
 
 #[allow(unused)]

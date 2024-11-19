@@ -84,6 +84,8 @@ enum FirecrackerStreamInner {
         #[pin]
         stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
     },
+    #[cfg(all(not(feature = "tokio-backend"), not(feature = "async-io-backend")))]
+    None(()),
 }
 
 impl HyperFirecrackerStream {

@@ -108,6 +108,8 @@ enum VsockStreamInner {
         #[pin]
         stream: smol_hyper::rt::FuturesIo<async_io::Async<std::fs::File>>,
     },
+    #[cfg(all(not(feature = "tokio-backend"), not(feature = "async-io-backend")))]
+    None(()),
 }
 
 impl hyper::rt::Read for HyperVsockStream {
