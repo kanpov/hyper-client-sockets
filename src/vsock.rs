@@ -77,10 +77,10 @@ impl HyperVsockStream {
             }
             #[cfg(feature = "async-io-backend")]
             Backend::AsyncIo => {
-                use std::os::fd::{AsFd, AsRawFd, FromRawFd};
+                use std::os::fd::{FromRawFd, IntoRawFd};
 
                 let stream = vsock::VsockStream::connect(&vsock_addr)?;
-                let stream = unsafe { std::fs::File::from_raw_fd(stream.as_fd().as_raw_fd()) };
+                let stream = unsafe { std::fs::File::from_raw_fd(stream.into_raw_fd()) };
                 let stream = async_io::Async::new(stream)?;
                 Ok(Self {
                     inner: VsockStreamInner::AsyncIo {
