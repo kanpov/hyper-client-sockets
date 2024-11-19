@@ -12,6 +12,7 @@ use vsock::VsockAddr;
 // Vendored in and shortened from https://github.com/rust-vsock/tokio-vsock/blob/master/src/stream.rs
 // Needed to prevent tokio-vsock dependency from being pulled in when vsock feature is not enabled.
 
+#[derive(Debug)]
 pub struct VsockInternalStream(AsyncFd<vsock::VsockStream>);
 
 impl AsyncWrite for VsockInternalStream {

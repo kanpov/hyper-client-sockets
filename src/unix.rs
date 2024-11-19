@@ -44,6 +44,7 @@ impl UnixUriExt for Uri {
 
 /// A hyper-compatible Unix socket connection.
 #[pin_project]
+#[derive(Debug)]
 pub struct HyperUnixStream {
     #[pin]
     inner: UnixStreamInner,
@@ -76,6 +77,7 @@ impl HyperUnixStream {
 }
 
 #[pin_project(project = UnixStreamProj)]
+#[derive(Debug)]
 enum UnixStreamInner {
     #[cfg(feature = "tokio-backend")]
     Tokio {

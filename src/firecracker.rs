@@ -67,12 +67,14 @@ impl FirecrackerUriExt for Uri {
 
 /// A hyper-compatible Firecracker Unix socket connection.
 #[pin_project]
+#[derive(Debug)]
 pub struct HyperFirecrackerStream {
     #[pin]
     inner: FirecrackerStreamInner,
 }
 
 #[pin_project(project = FirecrackerStreamProj)]
+#[derive(Debug)]
 enum FirecrackerStreamInner {
     #[cfg(feature = "tokio-backend")]
     Tokio {

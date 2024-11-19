@@ -59,6 +59,7 @@ impl VsockUriExt for Uri {
 
 /// A hyper-compatible virtio-vsock socket connection.
 #[pin_project]
+#[derive(Debug)]
 pub struct HyperVsockStream {
     #[pin]
     inner: VsockStreamInner,
@@ -97,6 +98,7 @@ impl HyperVsockStream {
 }
 
 #[pin_project(project = VsockStreamProj)]
+#[derive(Debug)]
 enum VsockStreamInner {
     #[cfg(feature = "tokio-backend")]
     Tokio {
