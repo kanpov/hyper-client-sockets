@@ -12,6 +12,9 @@ pub mod vsock;
 #[cfg(feature = "firecracker")]
 pub mod firecracker;
 
+#[cfg(feature = "vsock")]
+pub(crate) mod vsock_internal;
+
 #[allow(unused)]
 fn io_input_err(detail: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, detail)

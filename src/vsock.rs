@@ -70,7 +70,7 @@ impl HyperVsockStream {
         match backend {
             #[cfg(feature = "tokio-backend")]
             Backend::Tokio => {
-                let stream = tokio_vsock::VsockStream::connect(vsock_addr).await?;
+                let stream = crate::vsock_internal::connect_to_vsock(vsock_addr).await?;
                 Ok(Self {
                     inner: VsockStreamInner::Tokio {
                         stream: hyper_util::rt::TokioIo::new(stream),
@@ -101,7 +101,7 @@ enum VsockStreamInner {
     #[cfg(feature = "tokio-backend")]
     Tokio {
         #[pin]
-        stream: hyper_util::rt::TokioIo<tokio_vsock::VsockStream>,
+        stream: hyper_util::rt::TokioIo<crate::vsock_internal::VsockInternalStream>,
     },
     #[cfg(feature = "async-io-backend")]
     AsyncIo {
