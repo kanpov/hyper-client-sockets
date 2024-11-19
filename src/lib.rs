@@ -1,17 +1,11 @@
 #[cfg(feature = "unix")]
-mod unix;
-#[cfg(feature = "unix")]
-pub use unix::*;
+pub mod unix;
 
 #[cfg(feature = "vsock")]
-mod vsock;
-#[cfg(feature = "vsock")]
-pub use vsock::*;
+pub mod vsock;
 
 #[cfg(feature = "firecracker")]
-mod firecracker;
-#[cfg(feature = "firecracker")]
-pub use firecracker::*;
+pub mod firecracker;
 
 #[allow(unused)]
 fn io_input_err(detail: &str) -> std::io::Error {

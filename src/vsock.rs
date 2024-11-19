@@ -66,6 +66,7 @@ pin_project! {
 impl HyperVsockStream {
     pub async fn connect(vsock_addr: VsockAddr, backend: Backend) -> Result<Self, std::io::Error> {
         match backend {
+            #[cfg(feature = "tokio-backend")]
             Backend::Tokio => {
                 let stream = tokio_vsock::VsockStream::connect(vsock_addr).await?;
                 Ok(Self {
@@ -74,6 +75,7 @@ impl HyperVsockStream {
                     },
                 })
             }
+            #[cfg(feature = "async-io-backend")]
             Backend::AsyncIo => {
                 use std::os::fd::{AsFd, AsRawFd, FromRawFd};
 
@@ -86,6 +88,8 @@ impl HyperVsockStream {
                     },
                 })
             }
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
         }
     }
 }
@@ -211,7 +215,7 @@ pub mod connector {
 mod tests {
     use hyper::Uri;
 
-    use crate::VsockUriExt;
+    use crate::vsock::VsockUriExt;
 
     #[test]
     fn vsock_uri_should_be_constructed_correctly() {

@@ -4,8 +4,10 @@ use bytes::{Bytes, BytesMut};
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, server::conn::http1, service::service_fn, Request, Response, Uri};
 use hyper_client_sockets::{
-    FirecrackerUriExt, HyperFirecrackerConnector, HyperFirecrackerStream, HyperUnixConnector, HyperUnixStream,
-    HyperVsockConnector, HyperVsockStream, UnixUriExt, VsockUriExt,
+    firecracker::{connector::HyperFirecrackerConnector, FirecrackerUriExt, HyperFirecrackerStream},
+    unix::{connector::HyperUnixConnector, HyperUnixStream, UnixUriExt},
+    vsock::{connector::HyperVsockConnector, HyperVsockStream, VsockUriExt},
+    Backend,
 };
 use hyper_util::{
     client::legacy::Client,
@@ -118,7 +120,8 @@ async fn start_firecracker_server() -> (PathBuf, u32) {
 #[tokio::test]
 async fn unix_connectivity_with_hyper_util() {
     let path = start_unix_server().await;
-    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperUnixConnector);
+    let client: Client<_, Full<Bytes>> =
+        Client::builder(TokioExecutor::new()).build(HyperUnixConnector::new(Backend::Tokio));
     let request = Request::builder()
         .uri(Uri::unix(path, "/").unwrap())
         .method("GET")
@@ -131,7 +134,7 @@ async fn unix_connectivity_with_hyper_util() {
 #[tokio::test]
 async fn unix_connectivity_with_raw_hyper() {
     let path = start_unix_server().await;
-    let stream = HyperUnixStream::connect(&path).await.unwrap();
+    let stream = HyperUnixStream::connect(&path, Backend::Tokio).await.unwrap();
     let (mut make_req, conn) = hyper::client::conn::http1::Builder::new()
         .handshake::<_, Full<Bytes>>(stream)
         .await
@@ -149,7 +152,8 @@ async fn unix_connectivity_with_raw_hyper() {
 #[tokio::test]
 async fn vsock_connectivity_with_hyper_util() {
     let (cid, port) = start_vsock_server().await;
-    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperVsockConnector);
+    let client: Client<_, Full<Bytes>> =
+        Client::builder(TokioExecutor::new()).build(HyperVsockConnector::new(Backend::Tokio));
     let mut response = client
         .request(
             Request::builder()
@@ -165,7 +169,9 @@ async fn vsock_connectivity_with_hyper_util() {
 #[tokio::test]
 async fn vsock_connectivity_with_raw_hyper() {
     let (cid, port) = start_vsock_server().await;
-    let stream = HyperVsockStream::connect(cid, port).await.unwrap();
+    let stream = HyperVsockStream::connect(VsockAddr::new(cid, port), Backend::Tokio)
+        .await
+        .unwrap();
     let (mut make_req, conn) = hyper::client::conn::http1::Builder::new()
         .handshake::<_, Full<Bytes>>(stream)
         .await
@@ -181,7 +187,8 @@ async fn vsock_connectivity_with_raw_hyper() {
 #[tokio::test]
 async fn firecracker_connectivity_with_hyper_util() {
     let (path, port) = start_firecracker_server().await;
-    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector);
+    let client: Client<_, Full<Bytes>> =
+        Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector::new(Backend::Tokio));
     let mut response = client
         .request(
             Request::builder()
@@ -198,7 +205,11 @@ async fn firecracker_connectivity_with_hyper_util() {
 async fn firecracker_connectivity_with_raw_hyper() {
     let (path, port) = start_firecracker_server().await;
     let (mut make_req, conn) = hyper::client::conn::http1::Builder::new()
-        .handshake::<_, Full<Bytes>>(HyperFirecrackerStream::connect(&path, port).await.unwrap())
+        .handshake::<_, Full<Bytes>>(
+            HyperFirecrackerStream::connect(&path, port, Backend::Tokio)
+                .await
+                .unwrap(),
+        )
         .await
         .unwrap();
     tokio::task::spawn(conn);

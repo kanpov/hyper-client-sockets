@@ -67,6 +67,8 @@ impl HyperUnixStream {
                     },
                 })
             }
+            #[allow(unreachable_patterns)]
+            _ => panic!("No hyper-client-sockets backend was configured"),
         }
     }
 }
@@ -195,7 +197,7 @@ mod tests {
 
     use hyper::Uri;
 
-    use crate::UnixUriExt;
+    use crate::unix::UnixUriExt;
 
     #[test]
     fn unix_uri_should_be_constructed_correctly() {
