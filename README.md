@@ -4,10 +4,15 @@ Before hyper v1, hyperlocal was the most convenient solution to use Unix sockets
 
 This library provides hyper v1 client support for:
 
-- Unix (`AF_UNIX`) sockets
-- VSock (`AF_VSOCK`) sockets (most commonly used in virtualized environments)
-- Firecracker Unix sockets that need `CONNECT` commands in order to establish a tunnel
+- Unix (`AF_UNIX`) sockets (`HyperUnixStream` implementing hyper traits)
+- VSock (`AF_VSOCK`) sockets (`HyperVsockStream` implementing hyper traits)
+- Firecracker Unix sockets that need `CONNECT` commands in order to establish a tunnel (`HyperFirecrackerStream` implementing hyper traits)
 
-Plus, there is more panic-safety and more convenient extension traits for URIs. **Windows is not supported and Windows support is currently not planned**.
+Additionally, the library supports different async I/O backends:
 
-Both raw hyper (`handshake` and `SendRequest` + `Connection` with no pooling) and `hyper-util` (`Client`) are supported, though the latter is recommended as it has connection pooling.
+- Tokio using `tokio-backend`
+- `async-io` stack using `async-io-backend`
+
+The backend to use when connecting can be specified with the `Backend` enum. Compiling with both backends enabled is supported but not recommended, and leaving the choice of backend to the user is recommended for library developers.
+
+Lastly, the `connector` feature provides compatibility with `hyper-util`'s `Client` connection pool.
