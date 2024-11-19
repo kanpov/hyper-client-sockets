@@ -9,7 +9,7 @@ use std::{
 use futures_util::{io::BufReader, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, StreamExt};
 use hex::FromHex;
 use hyper::Uri;
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 #[cfg(feature = "tokio-backend")]
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -65,26 +65,24 @@ impl FirecrackerUriExt for Uri {
     }
 }
 
-pin_project! {
-    pub struct HyperFirecrackerStream {
-        #[pin] inner: FirecrackerStreamInner
-    }
+#[pin_project]
+pub struct HyperFirecrackerStream {
+    #[pin]
+    inner: FirecrackerStreamInner,
 }
 
-pin_project! {
-    #[project = FirecrackerStreamProj]
-    enum FirecrackerStreamInner {
-        #[cfg(feature = "tokio-backend")]
-        Tokio {
-            #[pin]
-            stream: hyper_util::rt::TokioIo<tokio::net::UnixStream>,
-        },
-        #[cfg(feature = "async-io-backend")]
-        AsyncIo {
-            #[pin]
-            stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
-        },
-    }
+#[pin_project(project = FirecrackerStreamProj)]
+enum FirecrackerStreamInner {
+    #[cfg(feature = "tokio-backend")]
+    Tokio {
+        #[pin]
+        stream: hyper_util::rt::TokioIo<tokio::net::UnixStream>,
+    },
+    #[cfg(feature = "async-io-backend")]
+    AsyncIo {
+        #[pin]
+        stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
+    },
 }
 
 impl HyperFirecrackerStream {

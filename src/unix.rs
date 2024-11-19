@@ -6,7 +6,7 @@ use std::{
 
 use hex::FromHex;
 use http::Uri;
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 
 use crate::{io_input_err, Backend};
 
@@ -42,10 +42,10 @@ impl UnixUriExt for Uri {
     }
 }
 
-pin_project! {
-    pub struct HyperUnixStream {
-        #[pin] inner: UnixStreamInner
-    }
+#[pin_project]
+pub struct HyperUnixStream {
+    #[pin]
+    inner: UnixStreamInner,
 }
 
 impl HyperUnixStream {
@@ -73,16 +73,18 @@ impl HyperUnixStream {
     }
 }
 
-pin_project! {
-    #[project = UnixStreamProj]
-    enum UnixStreamInner {
-        #[cfg(feature = "tokio-backend")]
-        Tokio { #[pin] stream: hyper_util::rt::TokioIo<tokio::net::UnixStream> },
-        #[cfg(feature = "async-io-backend")]
-        AsyncIo {
-            #[pin] stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
-        },
-    }
+#[pin_project(project = UnixStreamProj)]
+enum UnixStreamInner {
+    #[cfg(feature = "tokio-backend")]
+    Tokio {
+        #[pin]
+        stream: hyper_util::rt::TokioIo<tokio::net::UnixStream>,
+    },
+    #[cfg(feature = "async-io-backend")]
+    AsyncIo {
+        #[pin]
+        stream: smol_hyper::rt::FuturesIo<async_io::Async<std::os::unix::net::UnixStream>>,
+    },
 }
 
 impl hyper::rt::Read for HyperUnixStream {

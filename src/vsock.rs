@@ -6,7 +6,7 @@ use std::{
 
 use hex::FromHex;
 use hyper::Uri;
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 use vsock::VsockAddr;
 
 use crate::{io_input_err, Backend};
@@ -57,10 +57,10 @@ impl VsockUriExt for Uri {
     }
 }
 
-pin_project! {
-    pub struct HyperVsockStream {
-        #[pin] inner: VsockStreamInner
-    }
+#[pin_project]
+pub struct HyperVsockStream {
+    #[pin]
+    inner: VsockStreamInner,
 }
 
 impl HyperVsockStream {
@@ -94,14 +94,18 @@ impl HyperVsockStream {
     }
 }
 
-pin_project! {
-    #[project = VsockStreamProj]
-    enum VsockStreamInner {
-        #[cfg(feature = "tokio-backend")]
-        Tokio { #[pin] stream: hyper_util::rt::TokioIo<tokio_vsock::VsockStream> },
-        #[cfg(feature = "async-io-backend")]
-        AsyncIo { #[pin] stream: smol_hyper::rt::FuturesIo<async_io::Async<std::fs::File>> }
-    }
+#[pin_project(project = VsockStreamProj)]
+enum VsockStreamInner {
+    #[cfg(feature = "tokio-backend")]
+    Tokio {
+        #[pin]
+        stream: hyper_util::rt::TokioIo<tokio_vsock::VsockStream>,
+    },
+    #[cfg(feature = "async-io-backend")]
+    AsyncIo {
+        #[pin]
+        stream: smol_hyper::rt::FuturesIo<async_io::Async<std::fs::File>>,
+    },
 }
 
 impl hyper::rt::Read for HyperVsockStream {
