@@ -10,12 +10,12 @@ use pin_project::pin_project;
 
 use crate::{io_input_err, Backend};
 
-/// An extension trait for hyper URI allowing work with Unix URIs
+/// An extension trait for a URI that allows constructing a Unix socket URI.
 pub trait UnixUriExt {
-    /// Create a new Unix URI with the given socket path and in-socket URL
+    /// Create a new Unix URI with the given socket path and in-socket URI.
     fn unix(socket_path: impl AsRef<Path>, url: impl AsRef<str>) -> Result<Uri, http::uri::InvalidUri>;
 
-    /// Try to deconstruct this Unix URI's socket path
+    /// Try to deconstruct this Unix URI's socket path.
     fn parse_unix(&self) -> Result<PathBuf, std::io::Error>;
 }
 
@@ -42,6 +42,7 @@ impl UnixUriExt for Uri {
     }
 }
 
+/// A hyper-compatible Unix socket connection.
 #[pin_project]
 pub struct HyperUnixStream {
     #[pin]
@@ -49,6 +50,7 @@ pub struct HyperUnixStream {
 }
 
 impl HyperUnixStream {
+    /// Connect to the given socket path using the given [Backend].
     pub async fn connect(socket_path: impl AsRef<Path>, backend: Backend) -> Result<Self, std::io::Error> {
         match backend {
             #[cfg(feature = "tokio-backend")]
@@ -139,6 +141,7 @@ impl hyper::rt::Write for HyperUnixStream {
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "connector")))]
 #[cfg(feature = "connector")]
 pub mod connector {
     use std::{future::Future, pin::Pin, task::Poll};
@@ -151,16 +154,11 @@ pub mod connector {
 
     use super::{HyperUnixStream, UnixUriExt};
 
-    /// A hyper connector for a Unix socket
-    #[derive(Debug, Clone, Copy)]
+    /// A hyper-util connector for Unix sockets.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct HyperUnixConnector {
-        backend: Backend,
-    }
-
-    impl HyperUnixConnector {
-        pub fn new(backend: Backend) -> Self {
-            Self { backend }
-        }
+        /// The [Backend] to use when performing connections.
+        pub backend: Backend,
     }
 
     impl Unpin for HyperUnixConnector {}

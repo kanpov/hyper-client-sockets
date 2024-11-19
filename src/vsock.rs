@@ -57,6 +57,7 @@ impl VsockUriExt for Uri {
     }
 }
 
+/// A hyper-compatible virtio-vsock socket connection.
 #[pin_project]
 pub struct HyperVsockStream {
     #[pin]
@@ -64,6 +65,7 @@ pub struct HyperVsockStream {
 }
 
 impl HyperVsockStream {
+    /// Connect to the given [VsockAddr] using the given [Backend].
     pub async fn connect(vsock_addr: VsockAddr, backend: Backend) -> Result<Self, std::io::Error> {
         match backend {
             #[cfg(feature = "tokio-backend")]
@@ -160,6 +162,7 @@ impl hyper::rt::Write for HyperVsockStream {
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "connector")))]
 #[cfg(feature = "connector")]
 pub mod connector {
     use std::{future::Future, pin::Pin, task::Poll};
@@ -173,16 +176,11 @@ pub mod connector {
 
     use super::{HyperVsockStream, VsockUriExt};
 
-    /// A hyper connector for a vsock
-    #[derive(Debug, Clone, Copy)]
+    /// A hyper connector for virtio-vsock sockets.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct HyperVsockConnector {
-        backend: Backend,
-    }
-
-    impl HyperVsockConnector {
-        pub fn new(backend: Backend) -> Self {
-            Self { backend }
-        }
+        /// The [Backend] to use when performing connections.
+        pub backend: Backend,
     }
 
     impl Unpin for HyperVsockConnector {}

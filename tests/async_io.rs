@@ -22,8 +22,9 @@ mod common;
 fn unix_connectivity_with_hyper_util() {
     run_test(|executor| async {
         let path = start_unix_server();
-        let client: Client<_, Full<Bytes>> =
-            Client::builder(SmolExecutor::new(executor)).build(HyperUnixConnector::new(Backend::AsyncIo));
+        let client: Client<_, Full<Bytes>> = Client::builder(SmolExecutor::new(executor)).build(HyperUnixConnector {
+            backend: Backend::AsyncIo,
+        });
         let request = Request::builder()
             .uri(Uri::unix(path, "/").unwrap())
             .method("GET")
@@ -58,8 +59,9 @@ fn unix_connectivity_with_raw_hyper() {
 fn vsock_connectivity_with_hyper_util() {
     run_test(|executor| async {
         let (cid, port) = start_vsock_server();
-        let client: Client<_, Full<Bytes>> =
-            Client::builder(SmolExecutor::new(executor)).build(HyperVsockConnector::new(Backend::AsyncIo));
+        let client: Client<_, Full<Bytes>> = Client::builder(SmolExecutor::new(executor)).build(HyperVsockConnector {
+            backend: Backend::AsyncIo,
+        });
         let mut response = client
             .request(
                 Request::builder()
@@ -98,7 +100,9 @@ fn firecracker_connectivity_with_hyper_util() {
     run_test(|executor| async {
         let (path, port) = start_firecracker_server();
         let client: Client<_, Full<Bytes>> =
-            Client::builder(SmolExecutor::new(executor)).build(HyperFirecrackerConnector::new(Backend::AsyncIo));
+            Client::builder(SmolExecutor::new(executor)).build(HyperFirecrackerConnector {
+                backend: Backend::AsyncIo,
+            });
         let mut response = client
             .request(
                 Request::builder()

@@ -65,6 +65,7 @@ impl FirecrackerUriExt for Uri {
     }
 }
 
+/// A hyper-compatible Firecracker Unix socket connection.
 #[pin_project]
 pub struct HyperFirecrackerStream {
     #[pin]
@@ -86,6 +87,7 @@ enum FirecrackerStreamInner {
 }
 
 impl HyperFirecrackerStream {
+    /// Connect to the host socket path and tunnel to the guest port using the given [Backend].
     pub async fn connect(
         host_socket_path: impl AsRef<Path>,
         guest_port: u32,
@@ -196,6 +198,7 @@ impl hyper::rt::Write for HyperFirecrackerStream {
     }
 }
 
+#[cfg_attr(docsrs, doc(cfg(feature = "connector")))]
 #[cfg(feature = "connector")]
 pub mod connector {
     use std::{future::Future, pin::Pin, task::Poll};
@@ -208,16 +211,11 @@ pub mod connector {
 
     use super::{FirecrackerUriExt, HyperFirecrackerStream};
 
-    /// A hyper connector for a Firecracker socket
-    #[derive(Debug, Clone, Copy)]
+    /// A hyper-util connector for Firecracker sockets.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct HyperFirecrackerConnector {
-        backend: Backend,
-    }
-
-    impl HyperFirecrackerConnector {
-        pub fn new(backend: Backend) -> Self {
-            Self { backend }
-        }
+        /// The [Backend] to use when performing connections.
+        pub backend: Backend,
     }
 
     impl Unpin for HyperFirecrackerConnector {}

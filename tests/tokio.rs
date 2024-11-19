@@ -16,8 +16,9 @@ mod common;
 #[tokio::test]
 async fn unix_connectivity_with_hyper_util() {
     let path = start_unix_server();
-    let client: Client<_, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(HyperUnixConnector::new(Backend::Tokio));
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperUnixConnector {
+        backend: Backend::Tokio,
+    });
     let request = Request::builder()
         .uri(Uri::unix(path, "/").unwrap())
         .method("GET")
@@ -48,8 +49,9 @@ async fn unix_connectivity_with_raw_hyper() {
 #[tokio::test]
 async fn vsock_connectivity_with_hyper_util() {
     let (cid, port) = start_vsock_server();
-    let client: Client<_, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(HyperVsockConnector::new(Backend::Tokio));
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperVsockConnector {
+        backend: Backend::Tokio,
+    });
     let mut response = client
         .request(
             Request::builder()
@@ -83,8 +85,9 @@ async fn vsock_connectivity_with_raw_hyper() {
 #[tokio::test]
 async fn firecracker_connectivity_with_hyper_util() {
     let (path, port) = start_firecracker_server();
-    let client: Client<_, Full<Bytes>> =
-        Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector::new(Backend::Tokio));
+    let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build(HyperFirecrackerConnector {
+        backend: Backend::Tokio,
+    });
     let mut response = client
         .request(
             Request::builder()

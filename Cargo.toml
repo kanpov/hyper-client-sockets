@@ -10,6 +10,10 @@ readme = "README.md"
 keywords = ["hyper", "client", "sockets"]
 categories = ["web-programming", "web-programming::http-client"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 hex = "0.4.3"
 hyper = { version = "1.4.1", default-features = false }
