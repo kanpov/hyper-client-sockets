@@ -1,6 +1,6 @@
 [package]
 name = "hyper-client-sockets"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 description = "A Hyper client library allowing access to Unix, VSock and Firecracker sockets"

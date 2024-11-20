@@ -22,7 +22,7 @@ pub trait FirecrackerUriExt {
         host_socket_path: impl AsRef<Path>,
         guest_port: u32,
         url: impl AsRef<str>,
-    ) -> Result<Uri, Box<dyn Error>>;
+    ) -> Result<Uri, http::uri::InvalidUri>;
 
     /// Deconstruct this Firecracker URI into its host socket path and guest port
     fn parse_firecracker(&self) -> Result<(PathBuf, u32), std::io::Error>;
@@ -33,13 +33,13 @@ impl FirecrackerUriExt for Uri {
         host_socket_path: impl AsRef<Path>,
         guest_port: u32,
         url: impl AsRef<str>,
-    ) -> Result<Uri, Box<dyn Error>> {
+    ) -> Result<Uri, http::uri::InvalidUri> {
         let host = hex::encode(format!(
             "{}:{guest_port}",
             host_socket_path.as_ref().to_string_lossy().to_string()
         ));
         let uri_str = format!("fc://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        let uri = uri_str.parse::<Uri>()?;
         Ok(uri)
     }
 

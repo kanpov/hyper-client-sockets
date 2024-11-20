@@ -14,17 +14,17 @@ use crate::{io_input_err, Backend};
 /// An extension trait for hyper URI allowing work with vsock URIs
 pub trait VsockUriExt {
     /// Create a new vsock URI with the given vsock CID, port and in-socket URL
-    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>>;
+    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, http::uri::InvalidUri>;
 
     /// Deconstruct this vsock URI into its CID and port
     fn parse_vsock(&self) -> Result<(u32, u32), std::io::Error>;
 }
 
 impl VsockUriExt for Uri {
-    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, Box<dyn Error>> {
+    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, http::uri::InvalidUri> {
         let host = hex::encode(format!("{cid}.{port}"));
         let uri_str = format!("vsock://{host}/{}", url.as_ref().trim_start_matches('/'));
-        let uri = uri_str.parse::<Uri>().map_err(|err| Box::new(err))?;
+        let uri = uri_str.parse::<Uri>()?;
         Ok(uri)
     }
 
