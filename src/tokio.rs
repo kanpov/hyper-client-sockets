@@ -5,18 +5,18 @@ use std::{
     task::Poll,
 };
 
-#[cfg(feature = "unix")]
+#[cfg(any(feature = "unix", feature = "firecracker"))]
 use hyper_util::rt::TokioIo;
-#[cfg(feature = "unix")]
+#[cfg(any(feature = "unix", feature = "firecracker"))]
+use std::path::Path;
+#[cfg(any(feature = "unix", feature = "firecracker"))]
 use tokio::net::UnixStream;
 
-#[cfg(feature = "vsock")]
-use futures_util::ready;
+#[cfg(feature = "firecracker")]
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
 #[cfg(feature = "vsock")]
 use tokio::io::unix::AsyncFd;
-
-#[cfg(feature = "unix")]
-use std::path::Path;
 
 use crate::Backend;
 
@@ -32,6 +32,10 @@ impl Backend for TokioBackend {
     #[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
     type VsockIo = TokioVsockIo;
 
+    #[cfg(feature = "firecracker")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "firecracker")))]
+    type FirecrackerIo = TokioIo<UnixStream>;
+
     #[cfg(feature = "unix")]
     #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
     async fn connect_to_unix_socket(socket_path: &Path) -> Result<Self::UnixIo, std::io::Error> {
@@ -43,8 +47,40 @@ impl Backend for TokioBackend {
     async fn connect_to_vsock_socket(addr: vsock::VsockAddr) -> Result<Self::VsockIo, std::io::Error> {
         TokioVsockIo::connect(addr).await
     }
+
+    #[cfg(feature = "firecracker")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "firecracker")))]
+    async fn connect_to_firecracker_socket(
+        host_socket_path: &Path,
+        guest_port: u32,
+    ) -> Result<Self::FirecrackerIo, std::io::Error> {
+        let mut stream = UnixStream::connect(host_socket_path).await?;
+        stream.write_all(format!("CONNECT {guest_port}\n").as_bytes()).await?;
+
+        let mut lines = BufReader::new(&mut stream).lines();
+        match lines.next_line().await {
+            Ok(Some(line)) => {
+                if !line.starts_with("OK") {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::ConnectionRefused,
+                        "Firecracker refused to establish a tunnel to the given guest port",
+                    ));
+                }
+            }
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Could not read Firecracker response",
+                ))
+            }
+        };
+
+        Ok(TokioIo::new(stream))
+    }
 }
 
+/// IO object representing an active vsock connection controlled via a Tokio [AsyncFd].
+/// This is internally a reimplementation of a relevant part of the tokio-vsock crate.
 #[cfg(feature = "vsock")]
 #[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
 pub struct TokioVsockIo(AsyncFd<vsock::VsockStream>);
@@ -134,7 +170,11 @@ impl hyper::rt::Write for TokioVsockIo {
         buf: &[u8],
     ) -> Poll<Result<usize, std::io::Error>> {
         loop {
-            let mut guard = ready!(self.0.poll_write_ready(cx))?;
+            let mut guard = match self.0.poll_write_ready(cx) {
+                Poll::Ready(Ok(guard)) => guard,
+                Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+                Poll::Pending => return Poll::Pending,
+            };
 
             match guard.try_io(|inner| inner.get_ref().write(buf)) {
                 Ok(Ok(n)) => return Ok(n).into(),
@@ -174,7 +214,11 @@ impl hyper::rt::Read for TokioVsockIo {
         };
 
         loop {
-            let mut guard = ready!(self.0.poll_read_ready(cx))?;
+            let mut guard = match self.0.poll_write_ready(cx) {
+                Poll::Ready(Ok(guard)) => guard,
+                Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+                Poll::Pending => return Poll::Pending,
+            };
 
             match guard.try_io(|inner| inner.get_ref().read(b)) {
                 Ok(Ok(n)) => {
