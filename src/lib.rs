@@ -1,35 +1,25 @@
-#![cfg_attr(docsrs, feature(doc_cfg))]
-#![allow(unused)]
+#[cfg(any(feature = "unix", feature = "vsock"))]
+use std::future::Future;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
 #[cfg(feature = "unix")]
-pub mod unix;
+use std::path::Path;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
-#[cfg(feature = "vsock")]
-pub mod vsock;
+#[cfg(feature = "tokio-backend")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-backend")))]
+pub mod tokio;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "firecracker")))]
-#[cfg(feature = "firecracker")]
-pub mod firecracker;
+pub trait Backend {
+    #[cfg(feature = "unix")]
+    type UnixIo: hyper::rt::Read + hyper::rt::Write + Send + Unpin;
 
-#[cfg(all(feature = "vsock", feature = "tokio-backend"))]
-pub(crate) mod vsock_internal;
+    #[cfg(feature = "vsock")]
+    type VsockIo: hyper::rt::Read + hyper::rt::Write + Send + Unpin;
 
-#[allow(unused)]
-fn io_input_err(detail: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidInput, detail)
-}
+    #[cfg(feature = "unix")]
+    fn connect_to_unix_socket(socket_path: &Path) -> impl Future<Output = Result<Self::UnixIo, std::io::Error>> + Send;
 
-/// A backend used by hyper-client-sockets to perform asynchronous I/O with sockets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Backend {
-    /// A backend based on Tokio.
-    #[cfg_attr(docsrs, doc(cfg(feature = "tokio-backend")))]
-    #[cfg(feature = "tokio-backend")]
-    Tokio,
-    /// A backend based on async-io.
-    #[cfg_attr(docsrs, doc(cfg(feature = "async-io-backend")))]
-    #[cfg(feature = "async-io-backend")]
-    AsyncIo,
+    #[cfg(feature = "vsock")]
+    fn connect_to_vsock_socket(
+        addr: vsock::VsockAddr,
+    ) -> impl Future<Output = Result<Self::VsockIo, std::io::Error>> + Send;
 }
