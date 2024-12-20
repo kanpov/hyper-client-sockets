@@ -54,6 +54,8 @@ pub mod unix {
 
     use super::ConnectableIo;
 
+    /// A hyper-util connector that accepts hex-encoded Unix URIs and uses them to connect
+    /// to Unix sockets via the given [Backend].
     #[derive(Debug, Clone)]
     pub struct UnixConnector<B: Backend> {
         marker: PhantomData<B>,
@@ -99,6 +101,9 @@ pub mod vsock {
 
     use super::ConnectableIo;
 
+    /// A hyper-util connector that accepts hex-encoded virtio-vsock URIs and uses them to connect
+    /// to virtio-vsock sockets via the given [Backend].
+    #[derive(Debug, Clone)]
     pub struct VsockConnector<B: Backend> {
         marker: PhantomData<B>,
     }
@@ -143,6 +148,9 @@ pub mod firecracker {
 
     use super::ConnectableIo;
 
+    /// A hyper-util connector that accepts hex-encoded Firecracker URIs and uses them to connect
+    /// to Firecracker sockets via the given [Backend].
+    #[derive(Debug, Clone)]
     pub struct FirecrackerConnector<B: Backend> {
         marker: PhantomData<B>,
     }

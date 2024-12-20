@@ -31,6 +31,13 @@ vsock = { version = "0.5.1", optional = true }
 [dev-dependencies]
 hyper-client-sockets = { path = ".", features = ["full"] }
 tokio = { version = "1.38.0", features = ["macros", "fs"] }
+hyper-util = { version = "0.1.9", features = [
+    "client",
+    "client-legacy",
+    "http1",
+] }
+http-body-util = "0.1.2"
+bytes = "1.9.0"
 
 [features]
 default = []

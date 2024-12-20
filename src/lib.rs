@@ -17,7 +17,7 @@ pub mod uri;
 pub mod connector;
 
 /// A [Backend] is a runtime- and reactor-agnostic way to use hyper client-side with various types of sockets.
-pub trait Backend {
+pub trait Backend: Clone {
     /// An IO object representing a connected Unix socket.
     #[cfg(feature = "unix")]
     #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
