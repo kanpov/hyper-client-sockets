@@ -8,6 +8,10 @@ use std::path::Path;
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-backend")))]
 pub mod tokio;
 
+#[cfg(feature = "hyper-util")]
+#[cfg_attr(docsrs, doc(cfg(feature = "hyper-util")))]
+pub mod uri;
+
 /// A [Backend] is a runtime- and reactor-agnostic way to use hyper client-side with various types of sockets.
 pub trait Backend {
     /// An IO object representing a connected Unix socket.
