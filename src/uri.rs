@@ -48,8 +48,8 @@ pub trait VsockUri {
     /// Create a new vsock URI with the given vsock CID, port and in-socket URL
     fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, InvalidUri>;
 
-    /// Deconstruct this vsock URI into its CID and port
-    fn parse_vsock(&self) -> Result<(u32, u32), std::io::Error>;
+    /// Deconstruct this vsock URI into its address.
+    fn parse_vsock(&self) -> Result<vsock::VsockAddr, std::io::Error>;
 }
 
 #[cfg(feature = "vsock")]
@@ -62,7 +62,7 @@ impl VsockUri for Uri {
         Ok(uri)
     }
 
-    fn parse_vsock(&self) -> Result<(u32, u32), std::io::Error> {
+    fn parse_vsock(&self) -> Result<vsock::VsockAddr, std::io::Error> {
         if self.scheme_str() != Some("vsock") {
             return Err(io_input_err("URI scheme on a vsock socket must be vsock://"));
         }
@@ -84,7 +84,7 @@ impl VsockUri for Uri {
                     .parse()
                     .map_err(|_| io_input_err("Second split of URI (port) can't be parsed"))?;
 
-                Ok((cid, port))
+                Ok(vsock::VsockAddr::new(cid, port))
             }
             None => Err(io_input_err("URI host must be present")),
         }
