@@ -25,6 +25,11 @@ http = { version = "1.1.0", optional = true }
 # tokio backend
 tokio = { version = "1.40.0", features = ["net", "io-util"], optional = true }
 libc = { version = "0.2", optional = true }
+# async-io backend
+async-io = { version = "2.4.0", optional = true }
+smol-hyper = { version = "0.1.1", optional = true, default-features = false, features = [
+    "async-io",
+] }
 # vsock sockets
 vsock = { version = "0.5.1", optional = true }
 
@@ -41,8 +46,16 @@ bytes = "1.9.0"
 
 [features]
 default = []
-full = ["tokio-backend", "unix", "vsock", "firecracker", "hyper-util"]
+full = [
+    "tokio-backend",
+    "async-io-backend",
+    "unix",
+    "vsock",
+    "firecracker",
+    "hyper-util",
+]
 tokio-backend = ["dep:tokio", "dep:libc", "hyper-util/tokio"]
+async-io-backend = ["dep:async-io", "dep:smol-hyper"]
 hyper-util = [
     "dep:tower-service",
     "hyper-util/client-legacy",

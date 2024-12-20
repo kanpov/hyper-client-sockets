@@ -8,6 +8,10 @@ use std::path::Path;
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-backend")))]
 pub mod tokio;
 
+#[cfg(feature = "async-io-backend")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-io-backend")))]
+pub mod async_io;
+
 #[cfg(feature = "hyper-util")]
 #[cfg_attr(docsrs, doc(cfg(feature = "hyper-util")))]
 pub mod uri;
