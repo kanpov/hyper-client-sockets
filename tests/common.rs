@@ -41,9 +41,10 @@ pub fn serve_unix() -> PathBuf {
 pub fn serve_vsock() -> VsockAddr {
     let port = fastrand::u32(15000..=65536);
     let addr = VsockAddr::new(VMADDR_CID_LOCAL, port);
-    let mut listener = VsockListener::bind(addr).unwrap();
 
     in_tokio_thread(async move {
+        let mut listener = VsockListener::bind(addr).unwrap();
+
         loop {
             let (stream, _) = listener.accept().await.unwrap();
             tokio::spawn(async move {
