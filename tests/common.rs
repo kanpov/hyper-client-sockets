@@ -52,7 +52,7 @@ pub fn serve_vsock() -> VsockAddr {
         }
     });
 
-    std::thread::sleep(Duration::from_millis(10));
+    std::thread::sleep(Duration::from_millis(1));
     addr
 }
 

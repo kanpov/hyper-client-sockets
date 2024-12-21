@@ -110,10 +110,7 @@ impl TokioVsockIo {
         {
             let err = std::io::Error::last_os_error();
             if let Some(os_err) = err.raw_os_error() {
-                // Connect hasn't finished, that's fine.
                 if os_err != libc::EINPROGRESS {
-                    // Close the socket if we hit an error, ignoring the error
-                    // from closing since we can't pass back two errors.
                     let _ = unsafe { libc::close(socket) };
                     return Err(err);
                 }
@@ -125,8 +122,7 @@ impl TokioVsockIo {
         loop {
             let mut guard = async_fd.writable().await?;
 
-            // Checks if the connection failed or not
-            let conn_check = guard.try_io(|fd| {
+            let connection_check = guard.try_io(|fd| {
                 let mut sock_err: libc::c_int = 0;
                 let mut sock_err_len: libc::socklen_t = size_of::<libc::c_int>() as libc::socklen_t;
                 let err = unsafe {
@@ -150,7 +146,7 @@ impl TokioVsockIo {
                 }
             });
 
-            match conn_check {
+            match connection_check {
                 Ok(Ok(_)) => {
                     return Ok(TokioVsockIo(AsyncFd::new(unsafe {
                         vsock::VsockStream::from_raw_fd(async_fd.into_inner().into_raw_fd())

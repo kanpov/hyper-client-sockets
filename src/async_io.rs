@@ -106,10 +106,10 @@ impl AsyncVsockIo {
             }
         }
 
-        loop {
-            let async_fd = Async::new(unsafe { std::fs::File::from_raw_fd(socket) })?;
+        let async_fd = Async::new(unsafe { std::fs::File::from_raw_fd(socket) })?;
 
-            let conn_check = async_fd.write_with(|fd| {
+        loop {
+            let connection_check = async_fd.write_with(|fd| {
                 let mut sock_err: libc::c_int = 0;
                 let mut sock_err_len: libc::socklen_t = size_of::<libc::c_int>() as libc::socklen_t;
                 let err = unsafe {
@@ -133,7 +133,7 @@ impl AsyncVsockIo {
                 }
             });
 
-            match conn_check.await {
+            match connection_check.await {
                 Ok(_) => {
                     return Ok(AsyncVsockIo(Async::new(unsafe {
                         std::fs::File::from_raw_fd(async_fd.into_inner()?.into_raw_fd())
