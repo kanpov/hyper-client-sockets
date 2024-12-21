@@ -6,7 +6,10 @@ use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
 use libc::VMADDR_CID_LOCAL;
-use tokio::net::UnixListener;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::UnixListener,
+};
 use tokio_vsock::VsockListener;
 use uuid::Uuid;
 use vsock::VsockAddr;
@@ -54,6 +57,37 @@ pub fn serve_vsock() -> VsockAddr {
 
     std::thread::sleep(Duration::from_millis(1));
     addr
+}
+
+#[allow(unused)]
+pub fn serve_firecracker() -> PathBuf {
+    let socket_path = PathBuf::from("/tmp").join(Uuid::new_v4().to_string());
+    let cloned_socket_path = socket_path.clone();
+
+    in_tokio_thread(async move {
+        let listener = UnixListener::bind(&cloned_socket_path).unwrap();
+
+        loop {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                let mut lines = BufReader::new(&mut stream).lines();
+                let connect_line = lines.next_line().await.unwrap().unwrap();
+                if connect_line != "CONNECT 1234" {
+                    panic!("Connect is wrong!");
+                }
+                drop(lines);
+
+                stream.write_all(b"OK\n").await.unwrap();
+                http1::Builder::new()
+                    .serve_connection(TokioIo::new(stream), service_fn(responder))
+                    .await
+                    .unwrap();
+            });
+        }
+    });
+
+    std::thread::sleep(Duration::from_millis(1));
+    socket_path
 }
 
 #[allow(unused)]

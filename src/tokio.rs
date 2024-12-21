@@ -175,9 +175,9 @@ impl hyper::rt::Write for TokioVsockIo {
             };
 
             match guard.try_io(|inner| inner.get_ref().write(buf)) {
-                Ok(Ok(n)) => return Ok(n).into(),
-                Ok(Err(ref e)) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Ok(Err(e)) => return Err(e).into(),
+                Ok(Ok(amount)) => return Ok(amount).into(),
+                Ok(Err(ref err)) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+                Ok(Err(err)) => return Err(err).into(),
                 Err(_would_block) => continue,
             }
         }
@@ -219,15 +219,15 @@ impl hyper::rt::Read for TokioVsockIo {
             };
 
             match guard.try_io(|inner| inner.get_ref().read(b)) {
-                Ok(Ok(n)) => {
+                Ok(Ok(amount)) => {
                     unsafe {
-                        buf.advance(n);
+                        buf.advance(amount);
                     }
 
                     return Ok(()).into();
                 }
-                Ok(Err(ref e)) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Ok(Err(e)) => return Err(e).into(),
+                Ok(Err(ref err)) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+                Ok(Err(err)) => return Err(err).into(),
                 Err(_would_block) => {
                     continue;
                 }

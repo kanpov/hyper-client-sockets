@@ -161,7 +161,7 @@ impl hyper::rt::Write for AsyncVsockIo {
     ) -> Poll<Result<usize, std::io::Error>> {
         loop {
             match self.0.poll_writable(cx) {
-                Poll::Ready(Ok(guard)) => guard,
+                Poll::Ready(Ok(_)) => {}
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,
             };
@@ -203,7 +203,7 @@ impl hyper::rt::Read for AsyncVsockIo {
 
         loop {
             match self.0.poll_readable(cx) {
-                Poll::Ready(Ok(guard)) => guard,
+                Poll::Ready(Ok(_)) => {}
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,
             };
