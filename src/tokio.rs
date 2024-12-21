@@ -120,8 +120,9 @@ impl TokioVsockIo {
             }
         }
 
+        let async_fd = AsyncFd::new(unsafe { OwnedFd::from_raw_fd(socket) })?;
+
         loop {
-            let async_fd = AsyncFd::new(unsafe { OwnedFd::from_raw_fd(socket) })?;
             let mut guard = async_fd.writable().await?;
 
             // Checks if the connection failed or not
@@ -215,7 +216,7 @@ impl hyper::rt::Read for TokioVsockIo {
         };
 
         loop {
-            let mut guard = match self.0.poll_write_ready(cx) {
+            let mut guard = match self.0.poll_read_ready(cx) {
                 Poll::Ready(Ok(guard)) => guard,
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,

@@ -45,8 +45,8 @@ impl UnixUri for Uri {
 #[cfg(feature = "vsock")]
 #[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
 pub trait VsockUri {
-    /// Create a new vsock URI with the given vsock CID, port and in-socket URL
-    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, InvalidUri>;
+    /// Create a new vsock URI with the given vsock address and in-socket URL
+    fn vsock(addr: vsock::VsockAddr, url: impl AsRef<str>) -> Result<Uri, InvalidUri>;
 
     /// Deconstruct this vsock URI into its address.
     fn parse_vsock(&self) -> Result<vsock::VsockAddr, std::io::Error>;
@@ -55,8 +55,8 @@ pub trait VsockUri {
 #[cfg(feature = "vsock")]
 #[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
 impl VsockUri for Uri {
-    fn vsock(cid: u32, port: u32, url: impl AsRef<str>) -> Result<Uri, InvalidUri> {
-        let host = hex::encode(format!("{cid}.{port}"));
+    fn vsock(addr: vsock::VsockAddr, url: impl AsRef<str>) -> Result<Uri, InvalidUri> {
+        let host = hex::encode(format!("{}.{}", addr.cid(), addr.port()));
         let uri_str = format!("vsock://{host}/{}", url.as_ref().trim_start_matches('/'));
         let uri = uri_str.parse::<Uri>()?;
         Ok(uri)
@@ -181,7 +181,10 @@ mod tests {
     #[test]
     fn vsock_uri_should_be_constructed_correctly() {
         let uri = format!("vsock://{}/route", hex::encode("10.20"));
-        assert_eq!(uri.parse::<Uri>().unwrap(), Uri::vsock(10, 20, "/route").unwrap());
+        assert_eq!(
+            uri.parse::<Uri>().unwrap(),
+            Uri::vsock(VsockAddr::new(10, 20), "/route").unwrap()
+        );
     }
 
     #[test]
