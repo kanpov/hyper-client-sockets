@@ -139,7 +139,13 @@ impl AsyncVsockIo {
                         std::fs::File::from_raw_fd(async_fd.into_inner()?.into_raw_fd())
                     })?))
                 }
-                Err(_would_block) => continue,
+                Err(err)
+                    if err.kind() == std::io::ErrorKind::WouldBlock
+                        || err.kind() == std::io::ErrorKind::Interrupted =>
+                {
+                    continue
+                }
+                Err(err) => return Err(err),
             }
         }
     }
@@ -196,7 +202,7 @@ impl hyper::rt::Read for AsyncVsockIo {
         };
 
         loop {
-            match self.0.poll_writable(cx) {
+            match self.0.poll_readable(cx) {
                 Poll::Ready(Ok(guard)) => guard,
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,

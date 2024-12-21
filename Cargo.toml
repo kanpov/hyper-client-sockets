@@ -44,6 +44,9 @@ hyper-util = { version = "0.1.9", features = [
 ] }
 http-body-util = "0.1.2"
 bytes = "1.9.0"
+async-executor = "1.13.1"
+uuid = { version = "1.11.0", features = ["v4"] }
+hyper = { version = "1.5", features = ["client", "server", "http1"] }
 
 [features]
 default = []
