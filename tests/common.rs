@@ -5,8 +5,11 @@ use http::{Request, Response};
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
+use libc::VMADDR_CID_LOCAL;
 use tokio::net::UnixListener;
+use tokio_vsock::VsockListener;
 use uuid::Uuid;
+use vsock::VsockAddr;
 
 #[allow(unused)]
 pub fn serve_unix() -> PathBuf {
@@ -29,6 +32,28 @@ pub fn serve_unix() -> PathBuf {
 
     std::thread::sleep(Duration::from_millis(1));
     socket_path
+}
+
+#[allow(unused)]
+pub fn serve_vsock() -> VsockAddr {
+    let port = fastrand::u32(15000..=65536);
+    let addr = VsockAddr::new(VMADDR_CID_LOCAL, port);
+    let mut listener = VsockListener::bind(addr).unwrap();
+
+    in_tokio_thread(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                http1::Builder::new()
+                    .serve_connection(TokioIo::new(stream), service_fn(responder))
+                    .await
+                    .unwrap();
+            });
+        }
+    });
+
+    std::thread::sleep(Duration::from_millis(10));
+    addr
 }
 
 #[allow(unused)]

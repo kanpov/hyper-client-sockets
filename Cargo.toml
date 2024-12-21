@@ -36,7 +36,11 @@ vsock = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
 hyper-client-sockets = { path = ".", features = ["full"] }
+# runtimes
 tokio = { version = "1.38.0", features = ["macros", "fs"] }
+async-executor = "1.13.1"
+# hyper utils
+hyper = { version = "1.5", features = ["server", "http1"] }
 hyper-util = { version = "0.1.9", features = [
     "client",
     "client-legacy",
@@ -44,9 +48,10 @@ hyper-util = { version = "0.1.9", features = [
 ] }
 http-body-util = "0.1.2"
 bytes = "1.9.0"
-async-executor = "1.13.1"
+# misc
 uuid = { version = "1.11.0", features = ["v4"] }
-hyper = { version = "1.5", features = ["client", "server", "http1"] }
+tokio-vsock = "0.6.0"
+fastrand = "2.3.0"
 
 [features]
 default = []

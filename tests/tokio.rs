@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use common::{check_response, serve_unix};
+use common::{check_response, serve_unix, serve_vsock};
 use http::{Request, Uri};
 use http_body_util::Full;
 use hyper::client::conn::http1::handshake;
@@ -26,5 +26,18 @@ async fn tokio_unix_pooled_connectivity() {
     let socket_path = serve_unix();
     let client = Client::builder(TokioExecutor::new()).build::<_, Full<Bytes>>(UnixConnector::<TokioBackend>::new());
     let response = client.get(Uri::unix(&socket_path, "/").unwrap()).await.unwrap();
+    check_response(response).await;
+}
+
+#[tokio::test]
+async fn tokio_vsock_raw_connectivity() {
+    let addr = serve_vsock();
+    let io = TokioBackend::connect_to_vsock_socket(addr).await.unwrap();
+    let (mut send_request, conn) = handshake::<_, Full<Bytes>>(io).await.unwrap();
+    tokio::spawn(conn);
+    let response = send_request
+        .send_request(Request::new(Full::new(Bytes::new())))
+        .await
+        .unwrap();
     check_response(response).await;
 }
