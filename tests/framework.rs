@@ -2,24 +2,21 @@ use std::{
     convert::Infallible,
     future::Future,
     path::{Path, PathBuf},
+    pin::Pin,
     sync::Arc,
 };
 
 use async_executor::Executor;
 use bytes::{Bytes, BytesMut};
-use http::{Request, Response, Uri};
+use http::{Request, Response};
 use http_body_util::{BodyExt, Full};
 use hyper::{
     body::Incoming,
-    client::conn::http1::handshake,
     rt::{Read, Write},
     service::service_fn,
 };
 use hyper_client_sockets::{async_io::AsyncIoBackend, tokio::TokioBackend, Backend};
-use hyper_util::{
-    client::legacy::{connect::Connection, Client},
-    rt::TokioIo,
-};
+use hyper_util::rt::TokioIo;
 use smol_hyper::rt::FuturesIo;
 use uuid::Uuid;
 use vsock::VsockAddr;
@@ -51,28 +48,6 @@ impl Test {
             Test::AsyncIo(ref executor) => {
                 executor.spawn(future).detach();
             }
-        }
-    }
-
-    pub async fn connect_vsock(&self, addr: VsockAddr) -> Box<dyn HyperIo> {
-        match self {
-            Test::Tokio => Box::new(TokioBackend::connect_to_vsock_socket(addr).await.unwrap()),
-            Test::AsyncIo(_) => Box::new(AsyncIoBackend::connect_to_vsock_socket(addr).await.unwrap()),
-        }
-    }
-
-    pub async fn connect_firecracker(&self, host_socket_path: &Path, guest_port: u32) -> Box<dyn HyperIo> {
-        match self {
-            Test::Tokio => Box::new(
-                TokioBackend::connect_to_firecracker_socket(host_socket_path, guest_port)
-                    .await
-                    .unwrap(),
-            ),
-            Test::AsyncIo(_) => Box::new(
-                AsyncIoBackend::connect_to_firecracker_socket(host_socket_path, guest_port)
-                    .await
-                    .unwrap(),
-            ),
         }
     }
 
@@ -111,17 +86,29 @@ impl Test {
         }
     }
 
-    pub async fn test_raw(&self, io: Box<dyn HyperIo>) {
-        let (mut send_request, connection) = handshake::<_, Full<Bytes>>(io).await.unwrap();
-        self.spawn(connection);
-        let response = send_request
-            .send_request(Request::new(Full::new(Bytes::new())))
-            .await
-            .unwrap();
-        Self::assert_response(response).await;
+    pub async fn connect_vsock(&self, addr: VsockAddr) -> Box<dyn HyperIo> {
+        match self {
+            Test::Tokio => Box::new(TokioBackend::connect_to_vsock_socket(addr).await.unwrap()),
+            Test::AsyncIo(_) => Box::new(AsyncIoBackend::connect_to_vsock_socket(addr).await.unwrap()),
+        }
     }
 
-    async fn assert_response(mut response: Response<Incoming>) {
+    pub async fn connect_firecracker(&self, host_socket_path: &Path, guest_port: u32) -> Box<dyn HyperIo> {
+        match self {
+            Test::Tokio => Box::new(
+                TokioBackend::connect_to_firecracker_socket(host_socket_path, guest_port)
+                    .await
+                    .unwrap(),
+            ),
+            Test::AsyncIo(_) => Box::new(
+                AsyncIoBackend::connect_to_firecracker_socket(host_socket_path, guest_port)
+                    .await
+                    .unwrap(),
+            ),
+        }
+    }
+
+    pub async fn check_response(&self, mut response: Response<Incoming>) {
         let mut buf = BytesMut::new();
 
         while let Some(Ok(frame)) = response.frame().await {
@@ -139,6 +126,15 @@ impl Test {
                 .await
                 .expect("Could not serve HTTP/1 connection");
         });
+    }
+}
+
+#[derive(Clone)]
+pub struct TestHyperExecutor(pub Test);
+
+impl hyper::rt::Executor<Pin<Box<dyn Future<Output = ()> + Send + 'static>>> for TestHyperExecutor {
+    fn execute(&self, fut: Pin<Box<dyn Future<Output = ()> + Send + 'static>>) {
+        self.0.spawn(fut);
     }
 }
 
