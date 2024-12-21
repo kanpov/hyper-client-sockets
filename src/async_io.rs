@@ -8,6 +8,7 @@ use std::{
     task::Poll,
 };
 
+#[cfg(any(feature = "unix", feature = "vsock", feature = "firecracker"))]
 use async_io::Async;
 #[cfg(feature = "firecracker")]
 use futures_lite::{io::BufReader, AsyncBufReadExt, AsyncWriteExt, StreamExt};
@@ -18,18 +19,25 @@ use vsock::VsockAddr;
 
 use crate::Backend;
 
+/// [Backend] for hyper-client-sockets that is implemented via the async-io crate's reactor.
 #[derive(Debug, Clone)]
 pub struct AsyncIoBackend;
 
 impl Backend for AsyncIoBackend {
+    #[cfg(feature = "unix")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
     type UnixIo = FuturesIo<Async<std::os::unix::net::UnixStream>>;
 
     #[cfg(feature = "vsock")]
     #[cfg_attr(docsrs, doc(cfg(feature = "vsock")))]
     type VsockIo = AsyncVsockIo;
 
+    #[cfg(feature = "firecracker")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "firecracker")))]
     type FirecrackerIo = FuturesIo<Async<std::os::unix::net::UnixStream>>;
 
+    #[cfg(feature = "unix")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
     async fn connect_to_unix_socket(socket_path: &Path) -> Result<Self::UnixIo, std::io::Error> {
         Ok(FuturesIo::new(
             Async::<std::os::unix::net::UnixStream>::connect(socket_path).await?,
@@ -42,6 +50,8 @@ impl Backend for AsyncIoBackend {
         Ok(AsyncVsockIo::connect(addr).await?)
     }
 
+    #[cfg(feature = "firecracker")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "firecracker")))]
     async fn connect_to_firecracker_socket(
         host_socket_path: &Path,
         guest_port: u32,

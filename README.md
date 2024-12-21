@@ -13,6 +13,6 @@ Additionally, the library supports different async I/O backends:
 - Tokio using `tokio-backend`
 - `async-io` stack using `async-io-backend`
 
-The backend to use when connecting can be specified with the `Backend` enum. Compiling with both backends enabled is supported but not recommended, and leaving the choice of backend to the user is recommended for library developers.
+The backend to use when connecting can be specified with the `Backend` trait. Compiling with both backends enabled is supported but not recommended, and leaving the choice of backend to the user is recommended for library developers.
 
-Lastly, the `connector` feature provides compatibility with `hyper-util`'s `Client` connection pool.
+Lastly, the `hyper-util` feature provides compatibility with `hyper-util`'s `Client` connection pool via hex-encoded URIs.

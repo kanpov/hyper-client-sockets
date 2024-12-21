@@ -2,7 +2,7 @@
 use hex::FromHex;
 #[cfg(any(feature = "unix", feature = "vsock", feature = "firecracker"))]
 use http::{uri::InvalidUri, Uri};
-#[cfg(any(feature = "unix", feature = "vsock", feature = "firecracker"))]
+#[cfg(any(feature = "unix", feature = "firecracker"))]
 use std::path::{Path, PathBuf};
 
 /// An extension trait for a URI that allows constructing a hex-encoded Unix socket URI.

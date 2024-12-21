@@ -20,7 +20,7 @@ use tokio::io::unix::AsyncFd;
 
 use crate::Backend;
 
-/// [Backend] for hyper-client-sockets that is implemented via Tokio's I/O.
+/// [Backend] for hyper-client-sockets that is implemented via the Tokio reactor.
 #[derive(Clone)]
 pub struct TokioBackend;
 
