@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 #[cfg(any(feature = "unix", feature = "vsock", feature = "firecracker"))]
 use std::future::Future;
 
